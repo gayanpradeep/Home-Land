@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireHeadOfficeAdmin, handleAuthError } from "@/lib/permissions";
+import { requireAdmin, handleAuthError } from "@/lib/permissions";
 import { parseDashboardFilter } from "@/lib/dashboard-filter";
 import { getDepartmentPerformance } from "@/services/dashboard.service";
 import { isDevBypassEnabled, getDevBypassDepartmentPerformance } from "@/lib/dev-bypass";
 
 export async function GET(request: Request) {
   try {
-    await requireHeadOfficeAdmin();
+    await requireAdmin();
 
     if (isDevBypassEnabled()) {
       return NextResponse.json(getDevBypassDepartmentPerformance());

@@ -8,8 +8,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login?next=/admin/dashboard");
   }
 
-  if (user.role !== "HEAD_OFFICE_ADMIN") {
-    redirect("/rate");
+  if (user.userType !== "ADMIN") {
+    redirect("/rating");
   }
 
   return <div className="min-h-screen bg-muted/30">{children}</div>;

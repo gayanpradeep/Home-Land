@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     }
 
     const newHash = await hashPassword(newPassword);
-    await updatePasswordHash(user._id, newHash);
+    await updatePasswordHash(user._id, newHash, false);
 
     // Invalidate every existing session, then issue a fresh one for this request.
     await revokeAllSessionsForUser(user._id);

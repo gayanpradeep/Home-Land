@@ -44,8 +44,8 @@ export async function getDashboardSummary(filter: DashboardFilter): Promise<Dash
         },
       ])
       .toArray(),
-    db.collection(COLLECTIONS.BRANCHES).countDocuments({ isActive: true }),
-    db.collection(COLLECTIONS.DEVICES).countDocuments({ isActive: true }),
+    db.collection(COLLECTIONS.BRANCHES).countDocuments({ status: "ACTIVE" }),
+    db.collection(COLLECTIONS.DEVICES).countDocuments({ status: "ACTIVE" }),
   ]);
 
   const countByScore = new Map<number, number>();

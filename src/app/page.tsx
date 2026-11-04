@@ -8,5 +8,5 @@ export default async function Home() {
     redirect("/login");
   }
 
-  redirect(user.role === "HEAD_OFFICE_ADMIN" ? "/admin/dashboard" : "/rate");
+  redirect(user.userType === "ADMIN" ? "/admin/dashboard" : "/rating");
 }

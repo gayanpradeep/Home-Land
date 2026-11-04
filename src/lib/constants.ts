@@ -5,7 +5,6 @@ export const COLLECTIONS = {
   DEVICES: "devices",
   RATINGS: "ratings",
   FEEDBACK: "feedback",
-  RATING_CONFIGURATIONS: "ratingConfigurations",
   SESSIONS: "sessions",
   DAILY_SUMMARIES: "dailySummaries",
   AUDIT_LOGS: "auditLogs",
@@ -32,3 +31,5 @@ export const NEGATIVE_FEEDBACK_REASONS = [
 
 export const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? "hl_session";
 export const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 12);
+
+export const DEVICE_COOKIE_NAME = process.env.DEVICE_COOKIE_NAME ?? "hl_device";

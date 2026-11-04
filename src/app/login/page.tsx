@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { getCurrentUser } from "@/lib/session";
 import { LoginForm } from "./login-form";
 
@@ -11,18 +12,22 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   if (user) {
-    redirect(user.role === "HEAD_OFFICE_ADMIN" ? "/admin/dashboard" : "/rate");
+    redirect(user.userType === "ADMIN" ? "/admin/dashboard" : "/rating");
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-xl font-bold text-primary-foreground">
-            HL
-          </div>
-          <h1 className="text-xl font-semibold">Home Lands</h1>
-          <p className="text-sm text-muted-foreground">Customer Rating Management System</p>
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <Image
+            src="/home-lands-logo-tagline.jpg"
+            alt="Home Lands"
+            width={260}
+            height={130}
+            priority
+            className="h-auto w-56"
+          />
+          <h1 className="text-xl font-semibold">Customer Experience Rating System</h1>
         </div>
         <LoginForm nextPath={next} />
       </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireHeadOfficeAdmin, handleAuthError } from "@/lib/permissions";
+import { requireAdmin, handleAuthError } from "@/lib/permissions";
 import { listBranches } from "@/repositories/branch.repository";
 import { isDevBypassEnabled } from "@/lib/dev-bypass";
 
@@ -14,7 +14,7 @@ const PREVIEW_BRANCHES = [
 
 export async function GET() {
   try {
-    await requireHeadOfficeAdmin();
+    await requireAdmin();
 
     if (isDevBypassEnabled()) {
       return NextResponse.json(PREVIEW_BRANCHES);

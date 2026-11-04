@@ -32,7 +32,7 @@ async function main() {
             branchId: branch._id,
             departmentCode,
             departmentName: deptName,
-            isActive: true,
+            status: "ACTIVE",
             createdAt: now,
           },
           $set: { updatedAt: now },

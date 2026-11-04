@@ -42,8 +42,7 @@ async function main() {
         $setOnInsert: {
           ...branch,
           contactPhone: "",
-          contactEmail: "",
-          isActive: true,
+          status: "ACTIVE",
           createdAt: now,
         },
         $set: { updatedAt: now },

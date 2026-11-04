@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
-import type { Branch, Department, User } from "@/types/models";
+import type { Branch, Department, Device, User } from "@/types/models";
 
-// Lets you preview /admin and /rate screens with no database connected.
+// Lets you preview /admin and /rating screens with no database connected.
 // Hard-blocked in production regardless of the env flag, so it can never leak live.
 export function isDevBypassEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "true";
@@ -10,19 +10,19 @@ export function isDevBypassEnabled(): boolean {
 const MOCK_ID = new ObjectId("000000000000000000000001");
 
 export function getDevBypassUser(): User {
-  const role = process.env.DEV_BYPASS_ROLE === "BRANCH_DEPARTMENT_USER"
-    ? "BRANCH_DEPARTMENT_USER"
-    : "HEAD_OFFICE_ADMIN";
+  const userType = process.env.DEV_BYPASS_ROLE === "BRANCH" ? "BRANCH" : "ADMIN";
 
   return {
     _id: MOCK_ID,
-    email: "preview@local.dev",
+    username: "preview",
     passwordHash: "",
     fullName: "Preview User",
-    role,
-    branchId: role === "BRANCH_DEPARTMENT_USER" ? MOCK_ID : undefined,
-    departmentId: role === "BRANCH_DEPARTMENT_USER" ? MOCK_ID : undefined,
-    isActive: true,
+    userType,
+    branchId: userType === "BRANCH" ? MOCK_ID : null,
+    departmentId: userType === "BRANCH" ? MOCK_ID : null,
+    status: "ACTIVE",
+    mustChangePassword: false,
+    lastLoginAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -34,7 +34,7 @@ export function getDevBypassBranch(): Branch {
     branchCode: "BR01",
     branchName: "Colombo Head Branch (Preview)",
     address: "Preview mode — no database connected",
-    isActive: true,
+    status: "ACTIVE",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -46,7 +46,23 @@ export function getDevBypassDepartment(): Department {
     branchId: MOCK_ID,
     departmentCode: "SALES",
     departmentName: "Sales (Preview)",
-    isActive: true,
+    status: "ACTIVE",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+export function getDevBypassDevice(): Device {
+  return {
+    _id: MOCK_ID,
+    deviceCode: "DEV-PREVIEW-001",
+    deviceName: "Preview Counter",
+    branchId: MOCK_ID,
+    departmentId: MOCK_ID,
+    counterName: "Service Counter 01",
+    deviceTokenHash: "",
+    status: "ACTIVE",
+    lastSeenAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
   };

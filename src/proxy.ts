@@ -9,7 +9,7 @@ export function proxy(request: NextRequest) {
   const hasSession = devBypass || request.cookies.has(SESSION_COOKIE_NAME);
   const { pathname } = request.nextUrl;
 
-  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/rate");
+  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/rating");
 
   if (isProtected && !hasSession) {
     const loginUrl = new URL("/login", request.url);
@@ -21,5 +21,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/rate/:path*"],
+  matcher: ["/admin/:path*", "/rating/:path*"],
 };

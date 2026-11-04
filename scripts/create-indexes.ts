@@ -13,7 +13,7 @@ async function main() {
 
   await db.collection(COLLECTIONS.BRANCHES).createIndex({ branchCode: 1 }, { unique: true });
 
-  await db.collection(COLLECTIONS.USERS).createIndex({ email: 1 }, { unique: true });
+  await db.collection(COLLECTIONS.USERS).createIndex({ username: 1 }, { unique: true });
 
   await db
     .collection(COLLECTIONS.DEPARTMENTS)
@@ -22,7 +22,7 @@ async function main() {
   await db.collection(COLLECTIONS.DEVICES).createIndex({ deviceCode: 1 }, { unique: true });
   await db
     .collection(COLLECTIONS.DEVICES)
-    .createIndex({ branchId: 1, departmentId: 1 });
+    .createIndex({ branchId: 1, departmentId: 1, status: 1 });
 
   await db
     .collection(COLLECTIONS.RATINGS)
@@ -33,6 +33,7 @@ async function main() {
   await db
     .collection(COLLECTIONS.RATINGS)
     .createIndex({ deviceId: 1, submittedAt: -1 });
+  await db.collection(COLLECTIONS.RATINGS).createIndex({ submittedAt: -1 });
   await db
     .collection(COLLECTIONS.RATINGS)
     .createIndex({ submissionReference: 1 }, { unique: true });

@@ -15,29 +15,29 @@ export async function requireUser(): Promise<User> {
   return user;
 }
 
-export async function requireHeadOfficeAdmin(): Promise<User> {
+export async function requireAdmin(): Promise<User> {
   const user = await requireUser();
-  if (user.role !== "HEAD_OFFICE_ADMIN") {
-    throw new AuthError(403, "Head Office Admin access required.");
+  if (user.userType !== "ADMIN") {
+    throw new AuthError(403, "Admin access required.");
   }
   return user;
 }
 
-export async function requireBranchDepartmentUser(): Promise<User> {
+export async function requireBranchUser(): Promise<User> {
   const user = await requireUser();
-  if (user.role !== "BRANCH_DEPARTMENT_USER") {
+  if (user.userType !== "BRANCH") {
     throw new AuthError(403, "Branch user access required.");
   }
   return user;
 }
 
-/** Throws unless the Head Office Admin, or a branch user scoped to this exact branch+department, is asking. */
+/** Throws unless the Admin, or a branch user scoped to this exact branch+department, is asking. */
 export function assertBranchDepartmentScope(
   user: User,
   branchId: ObjectId,
   departmentId: ObjectId,
 ): void {
-  if (user.role === "HEAD_OFFICE_ADMIN") return;
+  if (user.userType === "ADMIN") return;
 
   const sameBranch = user.branchId?.equals(branchId);
   const sameDepartment = user.departmentId?.equals(departmentId);

@@ -5,14 +5,14 @@ import { findDepartmentById } from "@/repositories/department.repository";
 import { isDevBypassEnabled, getDevBypassBranch, getDevBypassDepartment } from "@/lib/dev-bypass";
 import { RatingScreen } from "@/components/customer-rating/rating-screen";
 
-export default async function RatePage() {
+export default async function RatingPage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect("/login?next=/rate");
+    redirect("/login?next=/rating");
   }
 
-  if (user.role !== "BRANCH_DEPARTMENT_USER") {
+  if (user.userType !== "BRANCH") {
     redirect("/admin/dashboard");
   }
 
@@ -20,7 +20,7 @@ export default async function RatePage() {
     return (
       <div className="flex min-h-screen items-center justify-center p-8 text-center">
         <p className="text-lg text-destructive">
-          This account has no assigned branch/department. Contact Head Office.
+          This account has no assigned branch/department. Contact an administrator.
         </p>
       </div>
     );

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { loginSchema } from "@/lib/validations";
-import { findUserByEmail, touchLastLogin } from "@/repositories/user.repository";
+import { findUserByUsername, touchLastLogin } from "@/repositories/user.repository";
 import { verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/session";
 import { isRateLimited, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
@@ -12,22 +12,22 @@ function clientIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
-  let email: string;
+  let username: string;
   let password: string;
 
   try {
     const body = await request.json();
     const parsed = loginSchema.parse(body);
-    email = parsed.email;
+    username = parsed.username;
     password = parsed.password;
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: "Invalid email or password format." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid username or password format." }, { status: 400 });
     }
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const rateLimitKey = `${clientIp(request)}:${email}`;
+  const rateLimitKey = `${clientIp(request)}:${username}`;
   if (isRateLimited(rateLimitKey)) {
     return NextResponse.json(
       { error: "Too many login attempts. Please try again later." },
@@ -35,17 +35,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await findUserByEmail(email);
+  const user = await findUserByUsername(username);
 
-  if (!user || !user.isActive) {
+  if (!user || user.status !== "ACTIVE") {
     recordFailedAttempt(rateLimitKey);
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
   const passwordValid = await verifyPassword(user.passwordHash, password);
   if (!passwordValid) {
     recordFailedAttempt(rateLimitKey);
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
   clearAttempts(rateLimitKey);

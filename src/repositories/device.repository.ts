@@ -3,39 +3,36 @@ import { getDb } from "@/lib/mongodb";
 import { COLLECTIONS } from "@/lib/constants";
 import type { Device } from "@/types/models";
 
-// Until full device registration/credentialing (Phase 5) exists, each branch+department
-// gets one auto-provisioned "Counter 01" device so ratings always have a valid deviceId.
-// This never trusts anything from the client — branchId/departmentId come from the
-// authenticated user record only.
-export async function findOrCreateDefaultDevice(
-  branchId: ObjectId,
-  departmentId: ObjectId,
-): Promise<Device> {
+export async function findDeviceByCode(deviceCode: string): Promise<Device | null> {
   const db = await getDb();
-  const collection = db.collection<Device>(COLLECTIONS.DEVICES);
+  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ deviceCode });
+}
 
-  const existing = await collection.findOne({
-    branchId,
-    departmentId,
-    counterName: "Counter 01",
-  });
-  if (existing) return existing;
+export async function findDeviceByTokenHash(deviceTokenHash: string): Promise<Device | null> {
+  const db = await getDb();
+  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ deviceTokenHash });
+}
 
-  const now = new Date();
-  const deviceCode = `AUTO-${branchId.toString().slice(-6)}-${departmentId.toString().slice(-6)}`;
+export async function findDeviceById(id: ObjectId | string): Promise<Device | null> {
+  const db = await getDb();
+  const _id = typeof id === "string" ? new ObjectId(id) : id;
+  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ _id });
+}
 
-  const doc: Device = {
-    deviceCode,
-    deviceName: "Default Counter",
-    branchId,
-    departmentId,
-    counterName: "Counter 01",
-    credentialHash: "",
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  };
+export async function listDevices(): Promise<Device[]> {
+  const db = await getDb();
+  return db.collection<Device>(COLLECTIONS.DEVICES).find({}).sort({ deviceCode: 1 }).toArray();
+}
 
-  const result = await collection.insertOne(doc);
+export async function createDevice(doc: Device): Promise<Device> {
+  const db = await getDb();
+  const result = await db.collection<Device>(COLLECTIONS.DEVICES).insertOne(doc);
   return { ...doc, _id: result.insertedId };
+}
+
+export async function touchLastSeen(deviceId: ObjectId): Promise<void> {
+  const db = await getDb();
+  await db
+    .collection<Device>(COLLECTIONS.DEVICES)
+    .updateOne({ _id: deviceId }, { $set: { lastSeenAt: new Date() } });
 }

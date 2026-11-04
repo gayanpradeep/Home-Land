@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { ratingSubmissionSchema } from "@/lib/validations";
-import { requireBranchDepartmentUser, handleAuthError } from "@/lib/permissions";
 import { isSameOriginRequest } from "@/lib/csrf";
-import { findOrCreateDefaultDevice } from "@/repositories/device.repository";
+import { getAuthenticatedDevice } from "@/lib/device-auth";
+import { findBranchById } from "@/repositories/branch.repository";
+import { findDepartmentById } from "@/repositories/department.repository";
 import { insertRating, insertFeedback } from "@/repositories/rating.repository";
 import type { RatingScore } from "@/types/models";
 
@@ -13,47 +14,53 @@ export async function POST(request: Request) {
   }
 
   try {
-    // branchId/departmentId always come from the authenticated user, never the request body.
-    const user = await requireBranchDepartmentUser();
+    // branchId/departmentId/deviceId/counterName always come from the authenticated
+    // device credential, never from the request body.
+    const device = await getAuthenticatedDevice();
+    if (!device || !device._id) {
+      return NextResponse.json({ error: "Device is not activated." }, { status: 401 });
+    }
 
-    if (!user.branchId || !user.departmentId) {
-      return NextResponse.json(
-        { error: "This account has no assigned branch/department." },
-        { status: 400 },
-      );
+    const [branch, department] = await Promise.all([
+      findBranchById(device.branchId),
+      findDepartmentById(device.departmentId),
+    ]);
+
+    if (!branch || branch.status !== "ACTIVE") {
+      return NextResponse.json({ error: "Branch is not active." }, { status: 403 });
+    }
+    if (!department || department.status !== "ACTIVE") {
+      return NextResponse.json({ error: "Department is not active." }, { status: 403 });
     }
 
     const body = await request.json();
-    const { ratingScore, reasonCodes, comment } = ratingSubmissionSchema.parse(body);
+    const { ratingScore, submissionReference, reasonCodes, comment } = ratingSubmissionSchema.parse(body);
 
-    const device = await findOrCreateDefaultDevice(user.branchId, user.departmentId);
-    if (!device._id) {
-      return NextResponse.json({ error: "Unable to resolve counter device." }, { status: 500 });
-    }
-
-    const rating = await insertRating({
-      branchId: user.branchId,
-      departmentId: user.departmentId,
+    const { rating, isDuplicate } = await insertRating({
+      branchId: device.branchId,
+      departmentId: device.departmentId,
       deviceId: device._id,
       counterName: device.counterName,
       ratingScore: ratingScore as RatingScore,
+      submissionReference,
     });
 
-    if (rating._id && ((reasonCodes && reasonCodes.length > 0) || comment)) {
+    if (!isDuplicate && rating._id && ((reasonCodes && reasonCodes.length > 0) || comment)) {
       await insertFeedback({
         ratingId: rating._id,
-        branchId: user.branchId,
-        departmentId: user.departmentId,
+        branchId: device.branchId,
+        departmentId: device.departmentId,
         reasonCodes: reasonCodes ?? [],
         comment,
       });
     }
 
-    return NextResponse.json({ ok: true, submissionReference: rating.submissionReference });
+    return NextResponse.json({
+      success: true,
+      message: "Rating submitted successfully",
+      data: { ratingScore: rating.ratingScore },
+    });
   } catch (error) {
-    const authResponse = handleAuthError(error);
-    if (authResponse) return authResponse;
-
     if (error instanceof ZodError) {
       return NextResponse.json({ error: "Invalid rating submission." }, { status: 400 });
     }

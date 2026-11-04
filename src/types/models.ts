@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 
-export type UserRole = "HEAD_OFFICE_ADMIN" | "BRANCH_DEPARTMENT_USER";
+export type UserType = "ADMIN" | "BRANCH";
+export type AccountStatus = "ACTIVE" | "INACTIVE";
 
 export type RatingScore = 1 | 2 | 3 | 4 | 5;
 
@@ -26,8 +27,7 @@ export interface Branch {
   branchName: string;
   address: string;
   contactPhone?: string;
-  contactEmail?: string;
-  isActive: boolean;
+  status: AccountStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,22 +37,22 @@ export interface Department {
   branchId: ObjectId;
   departmentCode: string;
   departmentName: string;
-  isActive: boolean;
+  status: AccountStatus;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface User {
   _id?: ObjectId;
-  email: string;
-  passwordHash: string;
   fullName: string;
-  role: UserRole;
-  branchId?: ObjectId;
-  departmentId?: ObjectId;
-  authorizedDeviceIds?: ObjectId[];
-  isActive: boolean;
-  lastLoginAt?: Date;
+  username: string;
+  passwordHash: string;
+  userType: UserType;
+  branchId: ObjectId | null;
+  departmentId: ObjectId | null;
+  status: AccountStatus;
+  mustChangePassword: boolean;
+  lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,9 +64,9 @@ export interface Device {
   branchId: ObjectId;
   departmentId: ObjectId;
   counterName: string;
-  credentialHash: string;
-  isActive: boolean;
-  lastHeartbeatAt?: Date;
+  deviceTokenHash: string;
+  status: AccountStatus;
+  lastSeenAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -93,13 +93,6 @@ export interface Feedback {
   reasonCodes: string[];
   comment?: string;
   createdAt: Date;
-}
-
-export interface RatingConfiguration {
-  _id?: ObjectId;
-  key: string;
-  negativeFeedbackReasons: { code: string; label: string }[];
-  updatedAt: Date;
 }
 
 export interface Session {
