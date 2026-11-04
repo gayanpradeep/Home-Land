@@ -129,7 +129,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
 
       <header className="relative z-10 flex items-center justify-between border-b border-black/5 bg-white/80 px-6 py-4 backdrop-blur-sm sm:px-10">
         <Image
-          src="/home-lands-logo-tagline.jpg"
+          src="/home-lands-logo-tagline.png"
           alt="Home Lands"
           width={220}
           height={110}
@@ -148,7 +148,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
         style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }}
       />
 
-      <main className="relative z-10 flex flex-1 items-center justify-center p-6">
+      <main className="relative z-10 flex flex-1 items-start justify-center px-6 pt-8 pb-6 sm:pt-10">
         <AnimatePresence mode="wait">
           {step === "rating" && (
             <motion.div
