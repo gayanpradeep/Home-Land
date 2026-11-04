@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { FiltersBar } from "@/components/dashboard/filters-bar";
@@ -18,7 +19,23 @@ function buildQuery(preset: DateRangePreset, branchId: string): string {
   return params.toString();
 }
 
+class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 export function DashboardView() {
+  const router = useRouter();
   const [preset, setPreset] = useState<DateRangePreset>("last7days");
   const [branchId, setBranchId] = useState("all");
 
@@ -26,30 +43,48 @@ export function DashboardView() {
 
   const summaryQuery = useQuery<DashboardSummary>({
     queryKey: ["dashboard", "summary", query],
-    queryFn: () => fetch(`/api/admin/dashboard/summary?${query}`).then((r) => r.json()),
+    queryFn: () => fetchJson(`/api/admin/dashboard/summary?${query}`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 
   const trendQuery = useQuery<TrendPoint[]>({
     queryKey: ["dashboard", "trends", query],
-    queryFn: () => fetch(`/api/admin/dashboard/trends?${query}`).then((r) => r.json()),
+    queryFn: () => fetchJson(`/api/admin/dashboard/trends?${query}`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 
   const branchPerfQuery = useQuery<EntityPerformance[]>({
     queryKey: ["dashboard", "branches", query],
-    queryFn: () => fetch(`/api/admin/dashboard/branches?${query}`).then((r) => r.json()),
+    queryFn: () => fetchJson(`/api/admin/dashboard/branches?${query}`),
     refetchInterval: REFRESH_INTERVAL_MS,
     enabled: branchId === "all",
   });
 
   const departmentPerfQuery = useQuery<EntityPerformance[]>({
     queryKey: ["dashboard", "departments", query],
-    queryFn: () => fetch(`/api/admin/dashboard/departments?${query}`).then((r) => r.json()),
+    queryFn: () => fetchJson(`/api/admin/dashboard/departments?${query}`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 
+  const sessionExpired = [summaryQuery, trendQuery, branchPerfQuery, departmentPerfQuery].some(
+    (q) => q.error instanceof ApiError && q.error.status === 401,
+  );
+
+  useEffect(() => {
+    if (sessionExpired) {
+      router.push("/login?next=/admin/dashboard");
+    }
+  }, [sessionExpired, router]);
+
   const summary = summaryQuery.data;
+
+  if (sessionExpired) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-muted-foreground">
+        Your session has expired. Redirecting to login...
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6 sm:p-8">
@@ -65,6 +100,12 @@ export function DashboardView() {
           onBranchChange={setBranchId}
         />
       </div>
+
+      {summaryQuery.error && (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Unable to load dashboard data: {summaryQuery.error.message}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile label="Total Ratings" value={summary ? summary.totalRatings.toLocaleString() : "..."} />
