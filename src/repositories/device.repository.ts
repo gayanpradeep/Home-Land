@@ -77,3 +77,8 @@ export async function updateDeviceStatus(deviceId: string, status: "ACTIVE" | "I
   const db = getDb();
   await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ status, updatedAt: new Date() });
 }
+
+export async function deleteDevice(deviceId: string): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).delete();
+}

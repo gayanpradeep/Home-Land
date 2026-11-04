@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateDeviceDialog } from "@/components/devices/create-device-dialog";
+import { Trash2 } from "lucide-react";
 
 interface DeviceRow {
   id: string;
@@ -42,6 +43,12 @@ export function DeviceManagement() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: nextStatus }),
     });
+    await queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
+  }
+
+  async function handleDelete(device: DeviceRow) {
+    if (!confirm(`Delete device "${device.deviceCode}"? This cannot be undone.`)) return;
+    await fetch(`/api/admin/devices/${device.id}`, { method: "DELETE" });
     await queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
   }
 
@@ -108,9 +115,22 @@ export function DeviceManagement() {
                   {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : "Never"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => toggleStatus(device)}>
-                    {device.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => toggleStatus(device)}>
+                      {device.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+                    </Button>
+                    {device.status === "INACTIVE" && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(device)}
+                        aria-label={`Delete device ${device.deviceCode}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
