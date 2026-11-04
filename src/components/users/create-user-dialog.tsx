@@ -143,6 +143,7 @@ export function CreateUserDialog() {
             <Input
               id="username"
               required
+              autoComplete="off"
               value={form.username}
               onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
             />
@@ -155,6 +156,7 @@ export function CreateUserDialog() {
               type="password"
               required
               minLength={8}
+              autoComplete="new-password"
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
             />
