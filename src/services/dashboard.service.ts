@@ -21,18 +21,23 @@ interface RatingRow {
 // fine at this app's scale (a date-range query, not a full-table scan) but if
 // ratings volume grows substantially this should move to pre-aggregated
 // dailySummaries written at submission time instead of raw fan-out reads.
+//
+// Only the date-range filter is applied server-side; branchId/departmentId are
+// filtered here in application code rather than added as Firestore `.where()`
+// equality clauses. Combining a range filter on one field with an equality
+// filter on another requires a Firestore composite index, and this app doesn't
+// assume one has been deployed (see firestore.indexes.json) — filtering here
+// works correctly with no index at all, at the cost of fetching a few more
+// documents than strictly necessary.
 async function fetchRatingRows(filter: DashboardFilter): Promise<RatingRow[]> {
   const db = getDb();
-  let query: FirebaseFirestore.Query = db
+  const query = db
     .collection(COLLECTIONS.RATINGS)
     .where("submittedAt", ">=", filter.from)
     .where("submittedAt", "<", filter.to);
 
-  if (filter.branchId) query = query.where("branchId", "==", filter.branchId);
-  if (filter.departmentId) query = query.where("departmentId", "==", filter.departmentId);
-
   const snapshot = await query.get();
-  return snapshot.docs.map((doc) => {
+  const rows = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       ratingScore: data.ratingScore as RatingScore,
@@ -41,6 +46,12 @@ async function fetchRatingRows(filter: DashboardFilter): Promise<RatingRow[]> {
       departmentId: data.departmentId as string,
     };
   });
+
+  return rows.filter(
+    (row) =>
+      (!filter.branchId || row.branchId === filter.branchId) &&
+      (!filter.departmentId || row.departmentId === filter.departmentId),
+  );
 }
 
 export interface DashboardSummary {
