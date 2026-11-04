@@ -8,6 +8,7 @@ import {
   revokeSessionByTokenHash,
 } from "@/repositories/session.repository";
 import { findUserById } from "@/repositories/user.repository";
+import { isDevBypassEnabled, getDevBypassUser } from "@/lib/dev-bypass";
 import type { User } from "@/types/models";
 
 function hashToken(token: string): string {
@@ -41,6 +42,10 @@ export async function destroyCurrentSession(): Promise<void> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  if (isDevBypassEnabled()) {
+    return getDevBypassUser();
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;

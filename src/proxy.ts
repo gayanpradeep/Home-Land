@@ -5,7 +5,8 @@ import { SESSION_COOKIE_NAME } from "@/lib/constants";
 // every protected layout/route handler re-verifies the session and role against the
 // database (see src/lib/permissions.ts), because middleware alone must never be trusted.
 export function proxy(request: NextRequest) {
-  const hasSession = request.cookies.has(SESSION_COOKIE_NAME);
+  const devBypass = process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "true";
+  const hasSession = devBypass || request.cookies.has(SESSION_COOKIE_NAME);
   const { pathname } = request.nextUrl;
 
   const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/rate");
