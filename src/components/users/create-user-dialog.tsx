@@ -174,7 +174,7 @@ export function CreateUserDialog() {
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{form.userType === "ADMIN" ? "Admin (Head Office)" : "Branch User"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ADMIN">Admin (Head Office)</SelectItem>
@@ -192,7 +192,11 @@ export function CreateUserDialog() {
                   onValueChange={(v) => setForm((f) => ({ ...f, branchId: v ?? "", departmentId: "" }))}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a branch" />
+                    <SelectValue>
+                      {form.branchId
+                        ? (branches?.find((b) => b.id === form.branchId)?.branchName ?? "Select a branch")
+                        : "Select a branch"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {branches?.map((b) => (
@@ -212,7 +216,14 @@ export function CreateUserDialog() {
                   disabled={!form.branchId}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={form.branchId ? "Select a department" : "Select a branch first"} />
+                    <SelectValue>
+                      {form.departmentId
+                        ? (filteredDepartments.find((d) => d.id === form.departmentId)?.departmentName ??
+                          "Select a department")
+                        : form.branchId
+                          ? "Select a department"
+                          : "Select a branch first"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {filteredDepartments.map((d) => (
