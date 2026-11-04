@@ -43,9 +43,9 @@ export function FiltersBar({ preset, onPresetChange, branchId, onBranchChange }:
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       <Select value={preset} onValueChange={(v) => onPresetChange(v as DateRangePreset)}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger className="w-full sm:w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -58,7 +58,7 @@ export function FiltersBar({ preset, onPresetChange, branchId, onBranchChange }:
       </Select>
 
       <Select value={branchId} onValueChange={(v) => onBranchChange(v ?? "all")}>
-        <SelectTrigger className="w-56">
+        <SelectTrigger className="w-full sm:w-56">
           <SelectValue placeholder="All Branches" />
         </SelectTrigger>
         <SelectContent>

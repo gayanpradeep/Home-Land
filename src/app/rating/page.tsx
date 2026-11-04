@@ -3,7 +3,9 @@ import { getCurrentUser } from "@/lib/session";
 import { findBranchById } from "@/repositories/branch.repository";
 import { findDepartmentById } from "@/repositories/department.repository";
 import { isDevBypassEnabled, getDevBypassBranch, getDevBypassDepartment } from "@/lib/dev-bypass";
+import { getAuthenticatedDevice } from "@/lib/device-auth";
 import { RatingScreen } from "@/components/customer-rating/rating-screen";
+import { DeviceActivation } from "@/components/customer-rating/device-activation";
 
 export default async function RatingPage() {
   const user = await getCurrentUser();
@@ -24,6 +26,14 @@ export default async function RatingPage() {
         </p>
       </div>
     );
+  }
+
+  // Ratings are attributed to the authenticated DEVICE, not the logged-in user —
+  // this kiosk's browser must be activated once with an admin-issued device code/secret
+  // before it can submit ratings at all.
+  const device = await getAuthenticatedDevice();
+  if (!device) {
+    return <DeviceActivation />;
   }
 
   const [branch, department] = isDevBypassEnabled()

@@ -23,16 +23,22 @@ export function AdminHeader({ fullName }: { fullName: string }) {
   }
 
   return (
-    <header className="flex items-center justify-between border-b bg-white px-6 py-3">
-      <div className="flex items-center gap-8">
-        <Image src="/home-lands-icon.png" alt="Home Lands" width={32} height={32} className="h-8 w-8" />
-        <nav className="flex items-center gap-1">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 sm:px-6">
+      <div className="flex min-w-0 items-center gap-4 sm:gap-8">
+        <Image
+          src="/home-lands-icon.png"
+          alt="Home Lands"
+          width={32}
+          height={32}
+          className="h-8 w-8 shrink-0"
+        />
+        <nav className="flex items-center gap-1 overflow-x-auto">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={cn(
-                "rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+                "shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
                 pathname.startsWith(link.href) && "bg-muted text-foreground",
               )}
             >
@@ -43,10 +49,12 @@ export function AdminHeader({ fullName }: { fullName: string }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">{fullName}</span>
+        <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
+          {fullName}
+        </span>
         <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="mr-1.5 h-4 w-4" />
-          Logout
+          <LogOut className="h-4 w-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </div>
     </header>
