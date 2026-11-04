@@ -21,7 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Copy, Check } from "lucide-react";
+import { Plus, Copy, Check, Smartphone, Building2, Users2, KeyRound, ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 interface BranchOption {
   id: string;
@@ -125,15 +129,21 @@ export function CreateDeviceDialog() {
         else setOpen(true);
       }}
     >
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button className="shadow-sm" />}>
         <Plus className="mr-1.5 h-4 w-4" />
         Register Device
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         {createdSecret ? (
           <>
             <DialogHeader>
-              <DialogTitle>Device Registered</DialogTitle>
+              <div
+                className="flex h-11 w-11 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${ORANGE}1a`, color: ORANGE }}
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <DialogTitle className="mt-3">Device Registered</DialogTitle>
               <DialogDescription>
                 Write this down now — the activation secret is shown only once and cannot be
                 retrieved again.
@@ -141,31 +151,52 @@ export function CreateDeviceDialog() {
             </DialogHeader>
 
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <Label>Device Code</Label>
-                <div className="rounded-lg border bg-muted px-3 py-2 font-mono text-sm">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                  Device Code
+                </Label>
+                <div
+                  className="rounded-xl border px-3.5 py-2.5 font-mono text-sm font-medium"
+                  style={{ borderColor: `${NAVY}1f`, color: NAVY, backgroundColor: `${NAVY}08` }}
+                >
                   {createdSecret.deviceCode}
                 </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <Label>Activation Secret</Label>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                  Activation Secret
+                </Label>
                 <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1 rounded-lg border bg-muted px-3 py-2 font-mono text-xs break-all">
+                  <div
+                    className="min-w-0 flex-1 rounded-xl border px-3.5 py-2.5 font-mono text-xs break-all"
+                    style={{ borderColor: `${NAVY}1f`, color: NAVY, backgroundColor: `${NAVY}08` }}
+                  >
                     {createdSecret.secret}
                   </div>
-                  <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={handleCopy}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 rounded-xl"
+                    onClick={handleCopy}
+                  >
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
                 Enter this device code and secret on the kiosk&apos;s activation screen at{" "}
-                <span className="font-mono">/rating</span>.
+                <span className="font-mono font-medium text-slate-700">/rating</span>.
               </p>
             </div>
 
             <DialogFooter>
-              <Button type="button" onClick={resetAndClose}>
+              <Button
+                type="button"
+                onClick={resetAndClose}
+                className="w-full text-white sm:w-auto"
+                style={{ backgroundColor: NAVY }}
+              >
                 Done
               </Button>
             </DialogFooter>
@@ -173,40 +204,61 @@ export function CreateDeviceDialog() {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Register Device</DialogTitle>
+              <div
+                className="flex h-11 w-11 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${NAVY}0f`, color: NAVY }}
+              >
+                <Smartphone className="h-5 w-5" />
+              </div>
+              <DialogTitle className="mt-3">Register Device</DialogTitle>
+              <DialogDescription>
+                Assign a kiosk tablet to a branch, department and counter.
+              </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="deviceCode">Device Code</Label>
-                <Input
-                  id="deviceCode"
-                  required
-                  autoComplete="off"
-                  placeholder="e.g. KIOSK-05"
-                  value={form.deviceCode}
-                  onChange={(e) => setForm((f) => ({ ...f, deviceCode: e.target.value }))}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="deviceCode" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <KeyRound className="h-3.5 w-3.5" style={{ color: ORANGE }} />
+                    Device Code
+                  </Label>
+                  <Input
+                    id="deviceCode"
+                    required
+                    autoComplete="off"
+                    placeholder="KIOSK-05"
+                    className="rounded-xl"
+                    value={form.deviceCode}
+                    onChange={(e) => setForm((f) => ({ ...f, deviceCode: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="counterName" className="text-xs font-semibold text-slate-600">
+                    Counter Name
+                  </Label>
+                  <Input
+                    id="counterName"
+                    required
+                    placeholder="Counter 02"
+                    className="rounded-xl"
+                    value={form.counterName}
+                    onChange={(e) => setForm((f) => ({ ...f, counterName: e.target.value }))}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="counterName">Counter Name</Label>
-                <Input
-                  id="counterName"
-                  required
-                  placeholder="e.g. Service Counter 02"
-                  value={form.counterName}
-                  onChange={(e) => setForm((f) => ({ ...f, counterName: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>Branch</Label>
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                  <Building2 className="h-3.5 w-3.5" style={{ color: NAVY }} />
+                  Branch
+                </Label>
                 <Select
                   value={form.branchId}
                   onValueChange={(v) => setForm((f) => ({ ...f, branchId: v ?? "", departmentId: "" }))}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-xl">
                     <SelectValue>
                       {form.branchId
                         ? (branches?.find((b) => b.id === form.branchId)?.branchName ?? "Select a branch")
@@ -224,13 +276,21 @@ export function CreateDeviceDialog() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>Department</Label>
+                <Label
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs font-semibold",
+                    form.branchId ? "text-slate-600" : "text-slate-400",
+                  )}
+                >
+                  <Users2 className="h-3.5 w-3.5" style={{ color: form.branchId ? ORANGE : "#94a3b8" }} />
+                  Department
+                </Label>
                 <Select
                   value={form.departmentId}
                   onValueChange={(v) => setForm((f) => ({ ...f, departmentId: v ?? "" }))}
                   disabled={!form.branchId}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-xl">
                     <SelectValue>
                       {form.departmentId
                         ? (filteredDepartments.find((d) => d.id === form.departmentId)?.departmentName ??
@@ -250,13 +310,22 @@ export function CreateDeviceDialog() {
                 </Select>
               </div>
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && (
+                <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={resetAndClose}>
+                <Button type="button" variant="outline" className="rounded-xl" onClick={resetAndClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl text-white shadow-sm"
+                  style={{ backgroundColor: NAVY }}
+                >
                   {isSubmitting ? "Registering..." : "Register Device"}
                 </Button>
               </DialogFooter>
