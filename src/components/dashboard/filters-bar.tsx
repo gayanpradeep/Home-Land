@@ -46,7 +46,9 @@ export function FiltersBar({ preset, onPresetChange, branchId, onBranchChange }:
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       <Select value={preset} onValueChange={(v) => onPresetChange(v as DateRangePreset)}>
         <SelectTrigger className="w-full sm:w-44">
-          <SelectValue />
+          <SelectValue>
+            {PRESET_OPTIONS.find((opt) => opt.value === preset)?.label ?? "Select range"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {PRESET_OPTIONS.map((opt) => (
@@ -59,7 +61,11 @@ export function FiltersBar({ preset, onPresetChange, branchId, onBranchChange }:
 
       <Select value={branchId} onValueChange={(v) => onBranchChange(v ?? "all")}>
         <SelectTrigger className="w-full sm:w-56">
-          <SelectValue placeholder="All Branches" />
+          <SelectValue>
+            {branchId === "all"
+              ? "All Branches"
+              : (branches?.find((b) => b.id === branchId)?.branchName ?? "All Branches")}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Branches</SelectItem>

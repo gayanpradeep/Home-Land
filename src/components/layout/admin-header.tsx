@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/users", label: "Users" },
+  { href: "/admin/reference", label: "Reference" },
   { href: "/admin/devices", label: "Devices" },
+  { href: "/admin/users", label: "Users" },
 ];
 
 export function AdminHeader({ fullName }: { fullName: string }) {

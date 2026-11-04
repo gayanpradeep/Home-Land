@@ -44,6 +44,33 @@ export const activateDeviceSchema = z.object({
   activationSecret: z.string().min(1).max(200),
 });
 
+export const createBranchSchema = z.object({
+  branchCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1)
+    .max(20)
+    .regex(/^[A-Z0-9._-]+$/, "Branch code may only contain letters, numbers, dots, dashes and underscores."),
+  branchName: z.string().trim().min(1).max(200),
+  address: z.string().trim().min(1).max(300),
+  contactPhone: z.string().trim().max(50).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
+export const createDepartmentSchema = z.object({
+  branchId: z.string().min(1),
+  departmentCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1)
+    .max(20)
+    .regex(/^[A-Z0-9._-]+$/, "Department code may only contain letters, numbers, dots, dashes and underscores."),
+  departmentName: z.string().trim().min(1).max(200),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
 export const createUserSchema = z.object({
   fullName: z.string().trim().min(1).max(200),
   username: usernameSchema,
@@ -73,3 +100,5 @@ export type DashboardFilterQuery = z.infer<typeof dashboardFilterQuerySchema>;
 export type ActivateDeviceInput = z.infer<typeof activateDeviceSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
+export type CreateBranchInput = z.infer<typeof createBranchSchema>;
+export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;

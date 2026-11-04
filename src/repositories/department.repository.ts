@@ -36,3 +36,42 @@ export async function listDepartmentsByBranch(branchId: string): Promise<Departm
     .get();
   return snapshot.docs.map(fromDoc);
 }
+
+export class DuplicateDepartmentCodeError extends Error {
+  constructor() {
+    super("That department code already exists for this branch.");
+  }
+}
+
+export interface CreateDepartmentArgs {
+  branchId: string;
+  departmentCode: string;
+  departmentName: string;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export async function createDepartment(args: CreateDepartmentArgs): Promise<Department> {
+  const db = getDb();
+  const existing = await db
+    .collection(COLLECTIONS.DEPARTMENTS)
+    .where("branchId", "==", args.branchId)
+    .where("departmentCode", "==", args.departmentCode)
+    .limit(1)
+    .get();
+  if (!existing.empty) {
+    throw new DuplicateDepartmentCodeError();
+  }
+
+  const now = new Date();
+  const doc = {
+    branchId: args.branchId,
+    departmentCode: args.departmentCode,
+    departmentName: args.departmentName,
+    status: args.status,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const ref = await db.collection(COLLECTIONS.DEPARTMENTS).add(doc);
+  return { ...doc, id: ref.id };
+}
