@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { CreateDeviceDialog } from "@/components/devices/create-device-dialog";
 import { Trash2 } from "lucide-react";
 
@@ -26,6 +35,9 @@ interface DeviceRow {
 
 export function DeviceManagement() {
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<DeviceRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<DeviceRow[]>({
     queryKey: ["admin", "devices"],
@@ -46,10 +58,23 @@ export function DeviceManagement() {
     await queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
   }
 
-  async function handleDelete(device: DeviceRow) {
-    if (!confirm(`Delete device "${device.deviceCode}"? This cannot be undone.`)) return;
-    await fetch(`/api/admin/devices/${device.id}`, { method: "DELETE" });
-    await queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/admin/devices/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error ?? "Unable to delete device.");
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
+      setDeleteTarget(null);
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -124,7 +149,10 @@ export function DeviceManagement() {
                         variant="outline"
                         size="icon"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(device)}
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeleteTarget(device);
+                        }}
                         aria-label={`Delete device ${device.deviceCode}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -137,6 +165,34 @@ export function DeviceManagement() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Device</DialogTitle>
+            <DialogDescription>
+              {deleteTarget && (
+                <>
+                  Delete <span className="font-mono font-medium text-foreground">{deleteTarget.deviceCode}</span>{" "}
+                  ({deleteTarget.counterName})? This cannot be undone — the kiosk will need to be
+                  re-registered and re-activated to submit ratings again.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete Device"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
