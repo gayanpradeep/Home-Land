@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ export function DeviceActivation() {
   const router = useRouter();
   const [deviceCode, setDeviceCode] = useState("");
   const [activationSecret, setActivationSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -75,14 +77,25 @@ export function DeviceActivation() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="activationSecret">Activation Secret</Label>
-                <Input
-                  id="activationSecret"
-                  type="password"
-                  autoComplete="off"
-                  required
-                  value={activationSecret}
-                  onChange={(e) => setActivationSecret(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="activationSecret"
+                    type={showSecret ? "text" : "password"}
+                    autoComplete="off"
+                    required
+                    value={activationSecret}
+                    onChange={(e) => setActivationSecret(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSecret((v) => !v)}
+                    className="absolute right-0 top-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label={showSecret ? "Hide activation secret" : "Show activation secret"}
+                  >
+                    {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" disabled={isSubmitting} className="mt-2">
