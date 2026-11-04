@@ -149,11 +149,11 @@ export function CreateDeviceDialog() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Activation Secret</Label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 overflow-x-auto rounded-lg border bg-muted px-3 py-2 font-mono text-xs whitespace-nowrap">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1 rounded-lg border bg-muted px-3 py-2 font-mono text-xs break-all">
                     {createdSecret.secret}
                   </div>
-                  <Button type="button" variant="outline" size="icon" onClick={handleCopy}>
+                  <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={handleCopy}>
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
