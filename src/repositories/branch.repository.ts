@@ -72,3 +72,52 @@ export async function createBranch(args: CreateBranchArgs): Promise<Branch> {
   const ref = await db.collection(COLLECTIONS.BRANCHES).add(doc);
   return { ...doc, id: ref.id };
 }
+
+export interface UpdateBranchArgs {
+  branchCode: string;
+  branchName: string;
+  address: string;
+  contactPhone?: string;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export async function updateBranch(id: string, args: UpdateBranchArgs): Promise<void> {
+  const db = getDb();
+  const existing = await findBranchByCode(args.branchCode);
+  if (existing && existing.id !== id) {
+    throw new DuplicateBranchCodeError();
+  }
+
+  await db
+    .collection(COLLECTIONS.BRANCHES)
+    .doc(id)
+    .update({
+      branchCode: args.branchCode,
+      branchName: args.branchName,
+      address: args.address,
+      contactPhone: args.contactPhone ?? "",
+      status: args.status,
+      updatedAt: new Date(),
+    });
+}
+
+export class BranchInUseError extends Error {
+  constructor() {
+    super("This branch still has departments or devices assigned to it.");
+  }
+}
+
+export async function deleteBranch(id: string): Promise<void> {
+  const db = getDb();
+
+  const [departments, devices] = await Promise.all([
+    db.collection(COLLECTIONS.DEPARTMENTS).where("branchId", "==", id).limit(1).get(),
+    db.collection(COLLECTIONS.DEVICES).where("branchId", "==", id).limit(1).get(),
+  ]);
+
+  if (!departments.empty || !devices.empty) {
+    throw new BranchInUseError();
+  }
+
+  await db.collection(COLLECTIONS.BRANCHES).doc(id).delete();
+}

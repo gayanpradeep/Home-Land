@@ -75,3 +75,51 @@ export async function createDepartment(args: CreateDepartmentArgs): Promise<Depa
   const ref = await db.collection(COLLECTIONS.DEPARTMENTS).add(doc);
   return { ...doc, id: ref.id };
 }
+
+export interface UpdateDepartmentArgs {
+  branchId: string;
+  departmentCode: string;
+  departmentName: string;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export async function updateDepartment(id: string, args: UpdateDepartmentArgs): Promise<void> {
+  const db = getDb();
+  const existing = await db
+    .collection(COLLECTIONS.DEPARTMENTS)
+    .where("branchId", "==", args.branchId)
+    .where("departmentCode", "==", args.departmentCode)
+    .limit(1)
+    .get();
+  if (!existing.empty && existing.docs[0].id !== id) {
+    throw new DuplicateDepartmentCodeError();
+  }
+
+  await db
+    .collection(COLLECTIONS.DEPARTMENTS)
+    .doc(id)
+    .update({
+      branchId: args.branchId,
+      departmentCode: args.departmentCode,
+      departmentName: args.departmentName,
+      status: args.status,
+      updatedAt: new Date(),
+    });
+}
+
+export class DepartmentInUseError extends Error {
+  constructor() {
+    super("This department still has devices assigned to it.");
+  }
+}
+
+export async function deleteDepartment(id: string): Promise<void> {
+  const db = getDb();
+
+  const devices = await db.collection(COLLECTIONS.DEVICES).where("departmentId", "==", id).limit(1).get();
+  if (!devices.empty) {
+    throw new DepartmentInUseError();
+  }
+
+  await db.collection(COLLECTIONS.DEPARTMENTS).doc(id).delete();
+}
