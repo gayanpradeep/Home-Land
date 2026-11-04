@@ -16,6 +16,22 @@ export const ratingSubmissionSchema = z.object({
   comment: z.string().trim().max(1000).optional(),
 });
 
+export const dateRangePresetSchema = z.enum([
+  "today",
+  "yesterday",
+  "last7days",
+  "last30days",
+  "thisMonth",
+  "previousMonth",
+]);
+
+export const dashboardFilterQuerySchema = z.object({
+  preset: dateRangePresetSchema.default("last7days"),
+  branchId: z.string().length(24).optional(),
+  departmentId: z.string().length(24).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type RatingSubmissionInput = z.infer<typeof ratingSubmissionSchema>;
+export type DashboardFilterQuery = z.infer<typeof dashboardFilterQuerySchema>;
