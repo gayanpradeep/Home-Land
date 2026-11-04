@@ -49,8 +49,19 @@ export async function listDevices(): Promise<Device[]> {
   return snapshot.docs.map(fromDoc);
 }
 
+export class DuplicateDeviceCodeError extends Error {
+  constructor() {
+    super("Device code is already in use.");
+  }
+}
+
 export async function createDevice(doc: Device): Promise<Device> {
   const db = getDb();
+  const existing = await findDeviceByCode(doc.deviceCode);
+  if (existing) {
+    throw new DuplicateDeviceCodeError();
+  }
+
   const { id, ...data } = doc;
   void id;
   const ref = await db.collection(COLLECTIONS.DEVICES).add(data);
@@ -60,4 +71,9 @@ export async function createDevice(doc: Device): Promise<Device> {
 export async function touchLastSeen(deviceId: string): Promise<void> {
   const db = getDb();
   await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ lastSeenAt: new Date() });
+}
+
+export async function updateDeviceStatus(deviceId: string, status: "ACTIVE" | "INACTIVE"): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ status, updatedAt: new Date() });
 }

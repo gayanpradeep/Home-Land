@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/devices", label: "Devices" },
 ];
 
 export function AdminHeader({ fullName }: { fullName: string }) {

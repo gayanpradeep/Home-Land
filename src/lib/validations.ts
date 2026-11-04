@@ -25,6 +25,20 @@ export const ratingSubmissionSchema = z.object({
   comment: z.string().trim().max(1000).optional(),
 });
 
+export const createDeviceSchema = z.object({
+  deviceCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(2)
+    .max(50)
+    .regex(/^[A-Z0-9._-]+$/, "Device code may only contain letters, numbers, dots, dashes and underscores."),
+  counterName: z.string().trim().min(1).max(100),
+  branchId: z.string().min(1),
+  departmentId: z.string().min(1),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
 export const activateDeviceSchema = z.object({
   deviceCode: z.string().trim().min(1).max(100),
   activationSecret: z.string().min(1).max(200),
@@ -72,3 +86,4 @@ export type RatingSubmissionInput = z.infer<typeof ratingSubmissionSchema>;
 export type DashboardFilterQuery = z.infer<typeof dashboardFilterQuerySchema>;
 export type ActivateDeviceInput = z.infer<typeof activateDeviceSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
