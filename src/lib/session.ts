@@ -8,7 +8,7 @@ import {
   revokeSessionByTokenHash,
 } from "@/repositories/session.repository";
 import { findUserById } from "@/repositories/user.repository";
-import { isDevBypassEnabled, getDevBypassUser } from "@/lib/dev-bypass";
+import { isDevBypassEnabled, getDevBypassUser, DEV_BYPASS_SESSION_COOKIE } from "@/lib/dev-bypass";
 import type { User } from "@/types/models";
 
 function hashToken(token: string): string {
@@ -34,6 +34,12 @@ export async function createSession(userId: ObjectId): Promise<void> {
 
 export async function destroyCurrentSession(): Promise<void> {
   const cookieStore = await cookies();
+
+  if (isDevBypassEnabled()) {
+    cookieStore.delete(DEV_BYPASS_SESSION_COOKIE);
+    return;
+  }
+
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (token) {
     await revokeSessionByTokenHash(hashToken(token));
@@ -42,11 +48,13 @@ export async function destroyCurrentSession(): Promise<void> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  const cookieStore = await cookies();
+
   if (isDevBypassEnabled()) {
-    return getDevBypassUser();
+    const hasBypassSession = cookieStore.get(DEV_BYPASS_SESSION_COOKIE)?.value === "1";
+    return hasBypassSession ? getDevBypassUser() : null;
   }
 
-  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 

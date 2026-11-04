@@ -7,6 +7,11 @@ export function isDevBypassEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "true";
 }
 
+// Dev-bypass still requires visiting /login and submitting the form first —
+// this cookie is what the login form flips on, so "/" shows the real login
+// page instead of silently auto-logging you in on every visit.
+export const DEV_BYPASS_SESSION_COOKIE = "hl_dev_bypass_session";
+
 const MOCK_ID = new ObjectId("000000000000000000000001");
 
 export function getDevBypassUser(): User {
