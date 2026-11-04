@@ -1,5 +1,6 @@
-import "dotenv/config";
-import { MongoClient } from "mongodb";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+import { getDb } from "../src/lib/firebase";
 import { COLLECTIONS, DEFAULT_DEPARTMENTS } from "../src/lib/constants";
 
 function toCode(name: string): string {
@@ -7,44 +8,43 @@ function toCode(name: string): string {
 }
 
 async function main() {
-  const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB_NAME ?? "homelands_rating_db";
-  if (!uri) throw new Error("MONGODB_URI is not set in .env.local");
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db(dbName);
+  const db = getDb();
   const now = new Date();
 
-  const branches = await db.collection(COLLECTIONS.BRANCHES).find({}).toArray();
-  if (branches.length === 0) {
+  const branchesSnapshot = await db.collection(COLLECTIONS.BRANCHES).get();
+  if (branchesSnapshot.empty) {
     throw new Error("No branches found. Run seed-branches.ts first.");
   }
 
+  const departmentsCollection = db.collection(COLLECTIONS.DEPARTMENTS);
   let count = 0;
-  for (const branch of branches) {
+
+  for (const branchDoc of branchesSnapshot.docs) {
     for (const deptName of DEFAULT_DEPARTMENTS) {
       const departmentCode = toCode(deptName);
-      await db.collection(COLLECTIONS.DEPARTMENTS).updateOne(
-        { branchId: branch._id, departmentCode },
-        {
-          $setOnInsert: {
-            branchId: branch._id,
-            departmentCode,
-            departmentName: deptName,
-            status: "ACTIVE",
-            createdAt: now,
-          },
-          $set: { updatedAt: now },
-        },
-        { upsert: true },
-      );
+      const existing = await departmentsCollection
+        .where("branchId", "==", branchDoc.id)
+        .where("departmentCode", "==", departmentCode)
+        .limit(1)
+        .get();
+
+      if (!existing.empty) {
+        await existing.docs[0].ref.update({ updatedAt: now });
+      } else {
+        await departmentsCollection.add({
+          branchId: branchDoc.id,
+          departmentCode,
+          departmentName: deptName,
+          status: "ACTIVE",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       count += 1;
     }
   }
 
-  console.log(`Seeded ${count} department records across ${branches.length} branches.`);
-  await client.close();
+  console.log(`Seeded ${count} department records across ${branchesSnapshot.size} branches.`);
 }
 
 main().catch((err) => {

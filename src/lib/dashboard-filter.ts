@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb";
 import { dashboardFilterQuerySchema } from "@/lib/validations";
 import { resolveDateRange } from "@/lib/date-range";
 import type { DashboardFilter } from "@/services/dashboard.service";
@@ -17,7 +16,7 @@ export function parseDashboardFilter(request: Request): DashboardFilter {
   return {
     from,
     to,
-    branchId: branchId ? new ObjectId(branchId) : undefined,
-    departmentId: departmentId ? new ObjectId(departmentId) : undefined,
+    branchId: branchId || undefined,
+    departmentId: departmentId || undefined,
   };
 }

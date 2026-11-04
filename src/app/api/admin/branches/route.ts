@@ -21,9 +21,7 @@ export async function GET() {
     }
 
     const branches = await listBranches();
-    return NextResponse.json(
-      branches.map((b) => ({ id: b._id?.toString(), branchName: b.branchName })),
-    );
+    return NextResponse.json(branches.map((b) => ({ id: b.id, branchName: b.branchName })));
   } catch (error) {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;

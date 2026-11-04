@@ -36,8 +36,8 @@ export const createUserSchema = z
     username: usernameSchema,
     password: z.string().min(8).max(200),
     userType: z.enum(["ADMIN", "BRANCH"]),
-    branchId: z.string().length(24).optional(),
-    departmentId: z.string().length(24).optional(),
+    branchId: z.string().min(1).optional(),
+    departmentId: z.string().min(1).optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
   })
   .superRefine((data, ctx) => {
@@ -62,8 +62,8 @@ export const dateRangePresetSchema = z.enum([
 
 export const dashboardFilterQuerySchema = z.object({
   preset: dateRangePresetSchema.default("last7days"),
-  branchId: z.string().length(24).optional(),
-  departmentId: z.string().length(24).optional(),
+  branchId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

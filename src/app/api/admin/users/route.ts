@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 import { ZodError } from "zod";
 import { requireAdmin, handleAuthError } from "@/lib/permissions";
 import { isSameOriginRequest } from "@/lib/csrf";
@@ -52,17 +51,17 @@ export async function GET() {
       listDepartments(),
     ]);
 
-    const branchNameById = new Map(branches.map((b) => [b._id?.toString(), b.branchName]));
-    const departmentNameById = new Map(departments.map((d) => [d._id?.toString(), d.departmentName]));
+    const branchNameById = new Map(branches.map((b) => [b.id, b.branchName]));
+    const departmentNameById = new Map(departments.map((d) => [d.id, d.departmentName]));
 
     return NextResponse.json(
       users.map((u) => ({
-        id: u._id?.toString(),
+        id: u.id,
         fullName: u.fullName,
         username: u.username,
         userType: u.userType,
-        branchName: u.branchId ? (branchNameById.get(u.branchId.toString()) ?? null) : null,
-        departmentName: u.departmentId ? (departmentNameById.get(u.departmentId.toString()) ?? null) : null,
+        branchName: u.branchId ? (branchNameById.get(u.branchId) ?? null) : null,
+        departmentName: u.departmentId ? (departmentNameById.get(u.departmentId) ?? null) : null,
         status: u.status,
         lastLoginAt: u.lastLoginAt,
       })),
@@ -99,8 +98,8 @@ export async function POST(request: Request) {
       username: input.username,
       passwordHash,
       userType: input.userType,
-      branchId: input.userType === "BRANCH" && input.branchId ? new ObjectId(input.branchId) : null,
-      departmentId: input.userType === "BRANCH" && input.departmentId ? new ObjectId(input.departmentId) : null,
+      branchId: input.userType === "BRANCH" && input.branchId ? input.branchId : null,
+      departmentId: input.userType === "BRANCH" && input.departmentId ? input.departmentId : null,
       status: input.status,
     });
 

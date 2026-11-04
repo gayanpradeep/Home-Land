@@ -48,8 +48,8 @@ export async function getAuthenticatedDevice(): Promise<Device | null> {
   const device = await findDeviceByTokenHash(hashDeviceSecret(secret));
   if (!device || device.status !== "ACTIVE") return null;
 
-  if (device._id) {
-    void touchLastSeen(device._id); // fire-and-forget; must not slow down rating submission
+  if (device.id) {
+    void touchLastSeen(device.id); // fire-and-forget; must not slow down rating submission
   }
 
   return device;

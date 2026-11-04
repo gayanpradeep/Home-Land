@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb";
 import type { Branch, Department, Device, User } from "@/types/models";
 
 // Lets you preview /admin and /rating screens with no database connected.
@@ -12,13 +11,13 @@ export function isDevBypassEnabled(): boolean {
 // page instead of silently auto-logging you in on every visit.
 export const DEV_BYPASS_SESSION_COOKIE = "hl_dev_bypass_session";
 
-const MOCK_ID = new ObjectId("000000000000000000000001");
+const MOCK_ID = "preview-mock-id";
 
 export function getDevBypassUser(): User {
   const userType = process.env.DEV_BYPASS_ROLE === "BRANCH" ? "BRANCH" : "ADMIN";
 
   return {
-    _id: MOCK_ID,
+    id: MOCK_ID,
     username: "preview",
     passwordHash: "",
     fullName: "Preview User",
@@ -35,7 +34,7 @@ export function getDevBypassUser(): User {
 
 export function getDevBypassBranch(): Branch {
   return {
-    _id: MOCK_ID,
+    id: MOCK_ID,
     branchCode: "BR01",
     branchName: "Colombo Head Branch (Preview)",
     address: "Preview mode — no database connected",
@@ -47,7 +46,7 @@ export function getDevBypassBranch(): Branch {
 
 export function getDevBypassDepartment(): Department {
   return {
-    _id: MOCK_ID,
+    id: MOCK_ID,
     branchId: MOCK_ID,
     departmentCode: "SALES",
     departmentName: "Sales (Preview)",
@@ -59,7 +58,7 @@ export function getDevBypassDepartment(): Department {
 
 export function getDevBypassDevice(): Device {
   return {
-    _id: MOCK_ID,
+    id: MOCK_ID,
     deviceCode: "DEV-PREVIEW-001",
     deviceName: "Preview Counter",
     branchId: MOCK_ID,

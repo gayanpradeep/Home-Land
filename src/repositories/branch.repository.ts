@@ -1,15 +1,28 @@
-import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { Branch } from "@/types/models";
 
-export async function findBranchById(id: ObjectId | string): Promise<Branch | null> {
-  const db = await getDb();
-  const _id = typeof id === "string" ? new ObjectId(id) : id;
-  return db.collection<Branch>(COLLECTIONS.BRANCHES).findOne({ _id });
+function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Branch {
+  const data = doc.data() as Omit<Branch, "id" | "createdAt" | "updatedAt"> & {
+    createdAt: unknown;
+    updatedAt: unknown;
+  };
+  return {
+    ...data,
+    id: doc.id,
+    createdAt: tsToDate(data.createdAt) ?? new Date(0),
+    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
+  };
+}
+
+export async function findBranchById(id: string): Promise<Branch | null> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTIONS.BRANCHES).doc(id).get();
+  return doc.exists ? fromDoc(doc) : null;
 }
 
 export async function listBranches(): Promise<Branch[]> {
-  const db = await getDb();
-  return db.collection<Branch>(COLLECTIONS.BRANCHES).find({}).sort({ branchCode: 1 }).toArray();
+  const db = getDb();
+  const snapshot = await db.collection(COLLECTIONS.BRANCHES).orderBy("branchCode", "asc").get();
+  return snapshot.docs.map(fromDoc);
 }

@@ -24,16 +24,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Current password is incorrect." }, { status: 400 });
     }
 
-    if (!user._id) {
+    if (!user.id) {
       return NextResponse.json({ error: "Account is misconfigured." }, { status: 500 });
     }
 
     const newHash = await hashPassword(newPassword);
-    await updatePasswordHash(user._id, newHash, false);
+    await updatePasswordHash(user.id, newHash, false);
 
     // Invalidate every existing session, then issue a fresh one for this request.
-    await revokeAllSessionsForUser(user._id);
-    await createSession(user._id);
+    await revokeAllSessionsForUser(user.id);
+    await createSession(user.id);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

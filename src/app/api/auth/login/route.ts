@@ -64,12 +64,12 @@ export async function POST(request: Request) {
 
   clearAttempts(rateLimitKey);
 
-  if (!user._id) {
+  if (!user.id) {
     return NextResponse.json({ error: "Account is misconfigured." }, { status: 500 });
   }
 
-  await createSession(user._id);
-  await touchLastLogin(user._id);
+  await createSession(user.id);
+  await touchLastLogin(user.id);
 
   return NextResponse.json({ user: toPublicUser(user) });
 }

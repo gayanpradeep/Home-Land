@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { ObjectId } from "mongodb";
 import { getCurrentUser } from "@/lib/session";
 import type { User } from "@/types/models";
 
@@ -34,13 +33,13 @@ export async function requireBranchUser(): Promise<User> {
 /** Throws unless the Admin, or a branch user scoped to this exact branch+department, is asking. */
 export function assertBranchDepartmentScope(
   user: User,
-  branchId: ObjectId,
-  departmentId: ObjectId,
+  branchId: string,
+  departmentId: string,
 ): void {
   if (user.userType === "ADMIN") return;
 
-  const sameBranch = user.branchId?.equals(branchId);
-  const sameDepartment = user.departmentId?.equals(departmentId);
+  const sameBranch = user.branchId === branchId;
+  const sameDepartment = user.departmentId === departmentId;
 
   if (!sameBranch || !sameDepartment) {
     throw new AuthError(403, "Not authorized for this branch/department.");

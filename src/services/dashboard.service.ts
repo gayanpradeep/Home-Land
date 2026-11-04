@@ -1,21 +1,46 @@
-import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
-import { COLLECTIONS, REPORTING_TIMEZONE } from "@/lib/constants";
+import { getDb, tsToDate } from "@/lib/firebase";
+import { COLLECTIONS } from "@/lib/constants";
+import type { RatingScore } from "@/types/models";
 
 export interface DashboardFilter {
   from: Date;
   to: Date;
-  branchId?: ObjectId;
-  departmentId?: ObjectId;
+  branchId?: string;
+  departmentId?: string;
 }
 
-function matchStage(filter: DashboardFilter) {
-  const match: Record<string, unknown> = {
-    submittedAt: { $gte: filter.from, $lt: filter.to },
-  };
-  if (filter.branchId) match.branchId = filter.branchId;
-  if (filter.departmentId) match.departmentId = filter.departmentId;
-  return { $match: match };
+interface RatingRow {
+  ratingScore: RatingScore;
+  submittedAt: Date;
+  branchId: string;
+  departmentId: string;
+}
+
+// Firestore has no server-side group-by/aggregation pipeline, so the matching
+// ratings are fetched once per request and reduced in application code. This is
+// fine at this app's scale (a date-range query, not a full-table scan) but if
+// ratings volume grows substantially this should move to pre-aggregated
+// dailySummaries written at submission time instead of raw fan-out reads.
+async function fetchRatingRows(filter: DashboardFilter): Promise<RatingRow[]> {
+  const db = getDb();
+  let query: FirebaseFirestore.Query = db
+    .collection(COLLECTIONS.RATINGS)
+    .where("submittedAt", ">=", filter.from)
+    .where("submittedAt", "<", filter.to);
+
+  if (filter.branchId) query = query.where("branchId", "==", filter.branchId);
+  if (filter.departmentId) query = query.where("departmentId", "==", filter.departmentId);
+
+  const snapshot = await query.get();
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      ratingScore: data.ratingScore as RatingScore,
+      submittedAt: tsToDate(data.submittedAt) ?? new Date(0),
+      branchId: data.branchId as string,
+      departmentId: data.departmentId as string,
+    };
+  });
 }
 
 export interface DashboardSummary {
@@ -29,28 +54,17 @@ export interface DashboardSummary {
 }
 
 export async function getDashboardSummary(filter: DashboardFilter): Promise<DashboardSummary> {
-  const db = await getDb();
+  const db = getDb();
 
-  const [ratingAgg, activeBranches, activeDevices] = await Promise.all([
-    db
-      .collection(COLLECTIONS.RATINGS)
-      .aggregate([
-        matchStage(filter),
-        {
-          $group: {
-            _id: "$ratingScore",
-            count: { $sum: 1 },
-          },
-        },
-      ])
-      .toArray(),
-    db.collection(COLLECTIONS.BRANCHES).countDocuments({ status: "ACTIVE" }),
-    db.collection(COLLECTIONS.DEVICES).countDocuments({ status: "ACTIVE" }),
+  const [rows, activeBranchesSnap, activeDevicesSnap] = await Promise.all([
+    fetchRatingRows(filter),
+    db.collection(COLLECTIONS.BRANCHES).where("status", "==", "ACTIVE").count().get(),
+    db.collection(COLLECTIONS.DEVICES).where("status", "==", "ACTIVE").count().get(),
   ]);
 
   const countByScore = new Map<number, number>();
-  for (const row of ratingAgg) {
-    countByScore.set(row._id as number, row.count as number);
+  for (const row of rows) {
+    countByScore.set(row.ratingScore, (countByScore.get(row.ratingScore) ?? 0) + 1);
   }
 
   let totalRatings = 0;
@@ -71,8 +85,8 @@ export async function getDashboardSummary(filter: DashboardFilter): Promise<Dash
     averageRating: totalRatings > 0 ? totalScore / totalRatings : 0,
     satisfactionRate: totalRatings > 0 ? (satisfactionCount / totalRatings) * 100 : 0,
     negativeRate: totalRatings > 0 ? (negativeCount / totalRatings) * 100 : 0,
-    activeBranches,
-    activeDevices,
+    activeBranches: activeBranchesSnap.data().count,
+    activeDevices: activeDevicesSnap.data().count,
     emojiDistribution: [1, 2, 3, 4, 5].map((score) => ({
       score,
       count: countByScore.get(score) ?? 0,
@@ -86,35 +100,34 @@ export interface TrendPoint {
   averageRating: number;
 }
 
+function toColomboDateKey(date: Date): string {
+  const COLOMBO_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const shifted = new Date(date.getTime() + COLOMBO_OFFSET_MS);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export async function getDashboardTrend(filter: DashboardFilter): Promise<TrendPoint[]> {
-  const db = await getDb();
+  const rows = await fetchRatingRows(filter);
 
-  const rows = await db
-    .collection(COLLECTIONS.RATINGS)
-    .aggregate([
-      matchStage(filter),
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: "%Y-%m-%d",
-              date: "$submittedAt",
-              timezone: REPORTING_TIMEZONE,
-            },
-          },
-          totalRatings: { $sum: 1 },
-          totalScore: { $sum: "$ratingScore" },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ])
-    .toArray();
+  const byDate = new Map<string, { totalRatings: number; totalScore: number }>();
+  for (const row of rows) {
+    const key = toColomboDateKey(row.submittedAt);
+    const bucket = byDate.get(key) ?? { totalRatings: 0, totalScore: 0 };
+    bucket.totalRatings += 1;
+    bucket.totalScore += row.ratingScore;
+    byDate.set(key, bucket);
+  }
 
-  return rows.map((row) => ({
-    date: row._id as string,
-    totalRatings: row.totalRatings as number,
-    averageRating: row.totalRatings > 0 ? (row.totalScore as number) / (row.totalRatings as number) : 0,
-  }));
+  return [...byDate.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, { totalRatings, totalScore }]) => ({
+      date,
+      totalRatings,
+      averageRating: totalRatings > 0 ? totalScore / totalRatings : 0,
+    }));
 }
 
 export interface EntityPerformance {
@@ -131,54 +144,51 @@ async function aggregateByEntity(
   groupField: "branchId" | "departmentId",
   lookupCollection: string,
 ): Promise<EntityPerformance[]> {
-  const db = await getDb();
+  const db = getDb();
+  const rows = await fetchRatingRows(filter);
 
-  const rows = await db
-    .collection(COLLECTIONS.RATINGS)
-    .aggregate([
-      matchStage(filter),
-      {
-        $group: {
-          _id: `$${groupField}`,
-          totalRatings: { $sum: 1 },
-          totalScore: { $sum: "$ratingScore" },
-          satisfactionCount: {
-            $sum: { $cond: [{ $gte: ["$ratingScore", 4] }, 1, 0] },
-          },
-          negativeCount: {
-            $sum: { $cond: [{ $lte: ["$ratingScore", 2] }, 1, 0] },
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: lookupCollection,
-          localField: "_id",
-          foreignField: "_id",
-          as: "entity",
-        },
-      },
-      { $unwind: "$entity" },
-      {
-        $addFields: {
-          averageRating: { $divide: ["$totalScore", "$totalRatings"] },
-        },
-      },
-      { $sort: { averageRating: -1 } },
-    ])
-    .toArray();
+  const byEntity = new Map<
+    string,
+    { totalRatings: number; totalScore: number; satisfactionCount: number; negativeCount: number }
+  >();
 
-  return rows.map((row) => {
-    const totalRatings = row.totalRatings as number;
-    return {
-      id: (row._id as ObjectId).toString(),
-      name: (row.entity.branchName ?? row.entity.departmentName) as string,
-      totalRatings,
-      averageRating: totalRatings > 0 ? (row.totalScore as number) / totalRatings : 0,
-      satisfactionRate: totalRatings > 0 ? ((row.satisfactionCount as number) / totalRatings) * 100 : 0,
-      negativeRate: totalRatings > 0 ? ((row.negativeCount as number) / totalRatings) * 100 : 0,
+  for (const row of rows) {
+    const key = row[groupField];
+    const bucket = byEntity.get(key) ?? {
+      totalRatings: 0,
+      totalScore: 0,
+      satisfactionCount: 0,
+      negativeCount: 0,
     };
-  });
+    bucket.totalRatings += 1;
+    bucket.totalScore += row.ratingScore;
+    if (row.ratingScore >= 4) bucket.satisfactionCount += 1;
+    if (row.ratingScore <= 2) bucket.negativeCount += 1;
+    byEntity.set(key, bucket);
+  }
+
+  const entityIds = [...byEntity.keys()];
+  const entityDocs = await Promise.all(entityIds.map((id) => db.collection(lookupCollection).doc(id).get()));
+  const nameById = new Map(
+    entityDocs.map((doc) => {
+      const data = doc.data() as { branchName?: string; departmentName?: string } | undefined;
+      return [doc.id, data?.branchName ?? data?.departmentName ?? "Unknown"];
+    }),
+  );
+
+  return entityIds
+    .map((id) => {
+      const { totalRatings, totalScore, satisfactionCount, negativeCount } = byEntity.get(id)!;
+      return {
+        id,
+        name: nameById.get(id) ?? "Unknown",
+        totalRatings,
+        averageRating: totalRatings > 0 ? totalScore / totalRatings : 0,
+        satisfactionRate: totalRatings > 0 ? (satisfactionCount / totalRatings) * 100 : 0,
+        negativeRate: totalRatings > 0 ? (negativeCount / totalRatings) * 100 : 0,
+      };
+    })
+    .sort((a, b) => b.averageRating - a.averageRating);
 }
 
 export function getBranchPerformance(filter: DashboardFilter): Promise<EntityPerformance[]> {

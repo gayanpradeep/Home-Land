@@ -1,5 +1,6 @@
-import "dotenv/config";
-import { MongoClient } from "mongodb";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+import { getDb } from "../src/lib/firebase";
 import { COLLECTIONS } from "../src/lib/constants";
 
 const BRANCHES = [
@@ -26,33 +27,28 @@ const BRANCHES = [
 ];
 
 async function main() {
-  const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB_NAME ?? "homelands_rating_db";
-  if (!uri) throw new Error("MONGODB_URI is not set in .env.local");
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db(dbName);
+  const db = getDb();
   const now = new Date();
+  const collection = db.collection(COLLECTIONS.BRANCHES);
 
+  let created = 0;
   for (const branch of BRANCHES) {
-    await db.collection(COLLECTIONS.BRANCHES).updateOne(
-      { branchCode: branch.branchCode },
-      {
-        $setOnInsert: {
-          ...branch,
-          contactPhone: "",
-          status: "ACTIVE",
-          createdAt: now,
-        },
-        $set: { updatedAt: now },
-      },
-      { upsert: true },
-    );
+    const existing = await collection.where("branchCode", "==", branch.branchCode).limit(1).get();
+    if (!existing.empty) {
+      await existing.docs[0].ref.update({ updatedAt: now });
+      continue;
+    }
+    await collection.add({
+      ...branch,
+      contactPhone: "",
+      status: "ACTIVE",
+      createdAt: now,
+      updatedAt: now,
+    });
+    created += 1;
   }
 
-  console.log(`Seeded ${BRANCHES.length} branches.`);
-  await client.close();
+  console.log(`Seeded ${BRANCHES.length} branches (${created} newly created).`);
 }
 
 main().catch((err) => {

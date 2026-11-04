@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     // branchId/departmentId/deviceId/counterName always come from the authenticated
     // device credential, never from the request body.
     const device = await getAuthenticatedDevice();
-    if (!device || !device._id) {
+    if (!device || !device.id) {
       return NextResponse.json({ error: "Device is not activated." }, { status: 401 });
     }
 
@@ -39,15 +39,15 @@ export async function POST(request: Request) {
     const { rating, isDuplicate } = await insertRating({
       branchId: device.branchId,
       departmentId: device.departmentId,
-      deviceId: device._id,
+      deviceId: device.id,
       counterName: device.counterName,
       ratingScore: ratingScore as RatingScore,
       submissionReference,
     });
 
-    if (!isDuplicate && rating._id && ((reasonCodes && reasonCodes.length > 0) || comment)) {
+    if (!isDuplicate && rating.id && ((reasonCodes && reasonCodes.length > 0) || comment)) {
       await insertFeedback({
-        ratingId: rating._id,
+        ratingId: rating.id,
         branchId: device.branchId,
         departmentId: device.departmentId,
         reasonCodes: reasonCodes ?? [],

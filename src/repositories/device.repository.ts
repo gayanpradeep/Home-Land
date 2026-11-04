@@ -1,38 +1,63 @@
-import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { Device } from "@/types/models";
 
+function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Device {
+  const data = doc.data() as Omit<Device, "id" | "createdAt" | "updatedAt" | "lastSeenAt"> & {
+    createdAt: unknown;
+    updatedAt: unknown;
+    lastSeenAt: unknown;
+  };
+  return {
+    ...data,
+    id: doc.id,
+    createdAt: tsToDate(data.createdAt) ?? new Date(0),
+    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
+    lastSeenAt: tsToDate(data.lastSeenAt),
+  };
+}
+
 export async function findDeviceByCode(deviceCode: string): Promise<Device | null> {
-  const db = await getDb();
-  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ deviceCode });
+  const db = getDb();
+  const snapshot = await db
+    .collection(COLLECTIONS.DEVICES)
+    .where("deviceCode", "==", deviceCode)
+    .limit(1)
+    .get();
+  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
 }
 
 export async function findDeviceByTokenHash(deviceTokenHash: string): Promise<Device | null> {
-  const db = await getDb();
-  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ deviceTokenHash });
+  const db = getDb();
+  const snapshot = await db
+    .collection(COLLECTIONS.DEVICES)
+    .where("deviceTokenHash", "==", deviceTokenHash)
+    .limit(1)
+    .get();
+  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
 }
 
-export async function findDeviceById(id: ObjectId | string): Promise<Device | null> {
-  const db = await getDb();
-  const _id = typeof id === "string" ? new ObjectId(id) : id;
-  return db.collection<Device>(COLLECTIONS.DEVICES).findOne({ _id });
+export async function findDeviceById(id: string): Promise<Device | null> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTIONS.DEVICES).doc(id).get();
+  return doc.exists ? fromDoc(doc) : null;
 }
 
 export async function listDevices(): Promise<Device[]> {
-  const db = await getDb();
-  return db.collection<Device>(COLLECTIONS.DEVICES).find({}).sort({ deviceCode: 1 }).toArray();
+  const db = getDb();
+  const snapshot = await db.collection(COLLECTIONS.DEVICES).orderBy("deviceCode", "asc").get();
+  return snapshot.docs.map(fromDoc);
 }
 
 export async function createDevice(doc: Device): Promise<Device> {
-  const db = await getDb();
-  const result = await db.collection<Device>(COLLECTIONS.DEVICES).insertOne(doc);
-  return { ...doc, _id: result.insertedId };
+  const db = getDb();
+  const { id, ...data } = doc;
+  void id;
+  const ref = await db.collection(COLLECTIONS.DEVICES).add(data);
+  return { ...doc, id: ref.id };
 }
 
-export async function touchLastSeen(deviceId: ObjectId): Promise<void> {
-  const db = await getDb();
-  await db
-    .collection<Device>(COLLECTIONS.DEVICES)
-    .updateOne({ _id: deviceId }, { $set: { lastSeenAt: new Date() } });
+export async function touchLastSeen(deviceId: string): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ lastSeenAt: new Date() });
 }

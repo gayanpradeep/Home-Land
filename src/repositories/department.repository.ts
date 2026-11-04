@@ -1,24 +1,38 @@
-import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { Department } from "@/types/models";
 
-export async function findDepartmentById(id: ObjectId | string): Promise<Department | null> {
-  const db = await getDb();
-  const _id = typeof id === "string" ? new ObjectId(id) : id;
-  return db.collection<Department>(COLLECTIONS.DEPARTMENTS).findOne({ _id });
+function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Department {
+  const data = doc.data() as Omit<Department, "id" | "createdAt" | "updatedAt"> & {
+    createdAt: unknown;
+    updatedAt: unknown;
+  };
+  return {
+    ...data,
+    id: doc.id,
+    createdAt: tsToDate(data.createdAt) ?? new Date(0),
+    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
+  };
+}
+
+export async function findDepartmentById(id: string): Promise<Department | null> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTIONS.DEPARTMENTS).doc(id).get();
+  return doc.exists ? fromDoc(doc) : null;
 }
 
 export async function listDepartments(): Promise<Department[]> {
-  const db = await getDb();
-  return db.collection<Department>(COLLECTIONS.DEPARTMENTS).find({}).sort({ departmentName: 1 }).toArray();
+  const db = getDb();
+  const snapshot = await db.collection(COLLECTIONS.DEPARTMENTS).orderBy("departmentName", "asc").get();
+  return snapshot.docs.map(fromDoc);
 }
 
-export async function listDepartmentsByBranch(branchId: ObjectId): Promise<Department[]> {
-  const db = await getDb();
-  return db
-    .collection<Department>(COLLECTIONS.DEPARTMENTS)
-    .find({ branchId })
-    .sort({ departmentName: 1 })
-    .toArray();
+export async function listDepartmentsByBranch(branchId: string): Promise<Department[]> {
+  const db = getDb();
+  const snapshot = await db
+    .collection(COLLECTIONS.DEPARTMENTS)
+    .where("branchId", "==", branchId)
+    .orderBy("departmentName", "asc")
+    .get();
+  return snapshot.docs.map(fromDoc);
 }

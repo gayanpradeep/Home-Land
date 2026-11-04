@@ -24,8 +24,8 @@ export async function GET() {
     const departments = await listDepartments();
     return NextResponse.json(
       departments.map((d) => ({
-        id: d._id?.toString(),
-        branchId: d.branchId.toString(),
+        id: d.id,
+        branchId: d.branchId,
         departmentName: d.departmentName,
       })),
     );

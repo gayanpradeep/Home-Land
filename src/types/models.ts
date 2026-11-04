@@ -1,5 +1,3 @@
-import type { ObjectId } from "mongodb";
-
 export type UserType = "ADMIN" | "BRANCH";
 export type AccountStatus = "ACTIVE" | "INACTIVE";
 
@@ -22,7 +20,7 @@ export const RATING_EMOJIS: Record<RatingScore, string> = {
 };
 
 export interface Branch {
-  _id?: ObjectId;
+  id?: string;
   branchCode: string;
   branchName: string;
   address: string;
@@ -33,8 +31,8 @@ export interface Branch {
 }
 
 export interface Department {
-  _id?: ObjectId;
-  branchId: ObjectId;
+  id?: string;
+  branchId: string;
   departmentCode: string;
   departmentName: string;
   status: AccountStatus;
@@ -43,13 +41,13 @@ export interface Department {
 }
 
 export interface User {
-  _id?: ObjectId;
+  id?: string;
   fullName: string;
   username: string;
   passwordHash: string;
   userType: UserType;
-  branchId: ObjectId | null;
-  departmentId: ObjectId | null;
+  branchId: string | null;
+  departmentId: string | null;
   status: AccountStatus;
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
@@ -58,11 +56,11 @@ export interface User {
 }
 
 export interface Device {
-  _id?: ObjectId;
+  id?: string;
   deviceCode: string;
   deviceName: string;
-  branchId: ObjectId;
-  departmentId: ObjectId;
+  branchId: string;
+  departmentId: string;
   counterName: string;
   deviceTokenHash: string;
   status: AccountStatus;
@@ -72,10 +70,10 @@ export interface Device {
 }
 
 export interface Rating {
-  _id?: ObjectId;
-  branchId: ObjectId;
-  departmentId: ObjectId;
-  deviceId: ObjectId;
+  id?: string;
+  branchId: string;
+  departmentId: string;
+  deviceId: string;
   counterName: string;
   ratingScore: RatingScore;
   emoji: string;
@@ -86,18 +84,18 @@ export interface Rating {
 }
 
 export interface Feedback {
-  _id?: ObjectId;
-  ratingId: ObjectId;
-  branchId: ObjectId;
-  departmentId: ObjectId;
+  id?: string;
+  ratingId: string;
+  branchId: string;
+  departmentId: string;
   reasonCodes: string[];
   comment?: string;
   createdAt: Date;
 }
 
 export interface Session {
-  _id?: ObjectId;
-  userId: ObjectId;
+  id?: string;
+  userId: string;
   tokenHash: string;
   expiresAt: Date;
   createdAt: Date;
@@ -105,9 +103,9 @@ export interface Session {
 }
 
 export interface DailySummary {
-  _id?: ObjectId;
-  branchId: ObjectId;
-  departmentId: ObjectId;
+  id?: string;
+  branchId: string;
+  departmentId: string;
   dateKey: string;
   totalRatings: number;
   totalScore: number;
@@ -129,12 +127,12 @@ export type AuditAction =
   | "SUBMIT_RATING";
 
 export interface AuditLog {
-  _id?: ObjectId;
+  id?: string;
   action: AuditAction;
-  actorUserId?: ObjectId;
-  actorDeviceId?: ObjectId;
+  actorUserId?: string;
+  actorDeviceId?: string;
   targetCollection?: string;
-  targetId?: ObjectId;
+  targetId?: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;
 }

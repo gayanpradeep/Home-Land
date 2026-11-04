@@ -1,6 +1,4 @@
-import { ObjectId } from "mongodb";
-import { MongoServerError } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { User } from "@/types/models";
 
@@ -9,39 +7,9 @@ export interface CreateUserArgs {
   username: string;
   passwordHash: string;
   userType: "ADMIN" | "BRANCH";
-  branchId: ObjectId | null;
-  departmentId: ObjectId | null;
+  branchId: string | null;
+  departmentId: string | null;
   status: "ACTIVE" | "INACTIVE";
-}
-
-export async function findUserByUsername(username: string): Promise<User | null> {
-  const db = await getDb();
-  return db.collection<User>(COLLECTIONS.USERS).findOne({ username });
-}
-
-export async function findUserById(id: ObjectId | string): Promise<User | null> {
-  const db = await getDb();
-  const _id = typeof id === "string" ? new ObjectId(id) : id;
-  return db.collection<User>(COLLECTIONS.USERS).findOne({ _id });
-}
-
-export async function listUsers(): Promise<User[]> {
-  const db = await getDb();
-  return db.collection<User>(COLLECTIONS.USERS).find({}).sort({ createdAt: -1 }).toArray();
-}
-
-export async function countActiveAdmins(excludeUserId?: ObjectId): Promise<number> {
-  const db = await getDb();
-  const filter: Record<string, unknown> = { userType: "ADMIN", status: "ACTIVE" };
-  if (excludeUserId) filter._id = { $ne: excludeUserId };
-  return db.collection<User>(COLLECTIONS.USERS).countDocuments(filter);
-}
-
-export async function touchLastLogin(userId: ObjectId): Promise<void> {
-  const db = await getDb();
-  await db
-    .collection<User>(COLLECTIONS.USERS)
-    .updateOne({ _id: userId }, { $set: { lastLoginAt: new Date() } });
 }
 
 export class DuplicateUsernameError extends Error {
@@ -50,10 +18,63 @@ export class DuplicateUsernameError extends Error {
   }
 }
 
+function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): User {
+  const data = doc.data() as Omit<User, "id" | "createdAt" | "updatedAt" | "lastLoginAt"> & {
+    createdAt: unknown;
+    updatedAt: unknown;
+    lastLoginAt: unknown;
+  };
+  return {
+    ...data,
+    id: doc.id,
+    createdAt: tsToDate(data.createdAt) ?? new Date(0),
+    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
+    lastLoginAt: tsToDate(data.lastLoginAt),
+  };
+}
+
+export async function findUserByUsername(username: string): Promise<User | null> {
+  const db = getDb();
+  const snapshot = await db.collection(COLLECTIONS.USERS).where("username", "==", username).limit(1).get();
+  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
+}
+
+export async function findUserById(id: string): Promise<User | null> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTIONS.USERS).doc(id).get();
+  return doc.exists ? fromDoc(doc) : null;
+}
+
+export async function listUsers(): Promise<User[]> {
+  const db = getDb();
+  const snapshot = await db.collection(COLLECTIONS.USERS).orderBy("createdAt", "desc").get();
+  return snapshot.docs.map(fromDoc);
+}
+
+export async function countActiveAdmins(excludeUserId?: string): Promise<number> {
+  const db = getDb();
+  const snapshot = await db
+    .collection(COLLECTIONS.USERS)
+    .where("userType", "==", "ADMIN")
+    .where("status", "==", "ACTIVE")
+    .get();
+  return snapshot.docs.filter((doc) => doc.id !== excludeUserId).length;
+}
+
+export async function touchLastLogin(userId: string): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.USERS).doc(userId).update({ lastLoginAt: new Date() });
+}
+
 export async function createUser(args: CreateUserArgs): Promise<User> {
-  const db = await getDb();
+  const db = getDb();
+  const existing = await findUserByUsername(args.username);
+  if (existing) {
+    throw new DuplicateUsernameError();
+  }
+
   const now = new Date();
-  const doc: User = {
+  const doc = {
     fullName: args.fullName,
     username: args.username,
     passwordHash: args.passwordHash,
@@ -67,31 +88,23 @@ export async function createUser(args: CreateUserArgs): Promise<User> {
     updatedAt: now,
   };
 
-  try {
-    const result = await db.collection<User>(COLLECTIONS.USERS).insertOne(doc);
-    return { ...doc, _id: result.insertedId };
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      throw new DuplicateUsernameError();
-    }
-    throw error;
-  }
+  const ref = await db.collection(COLLECTIONS.USERS).add(doc);
+  return { ...doc, id: ref.id };
 }
 
-export async function updateUserStatus(userId: ObjectId, status: "ACTIVE" | "INACTIVE"): Promise<void> {
-  const db = await getDb();
-  await db
-    .collection<User>(COLLECTIONS.USERS)
-    .updateOne({ _id: userId }, { $set: { status, updatedAt: new Date() } });
+export async function updateUserStatus(userId: string, status: "ACTIVE" | "INACTIVE"): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.USERS).doc(userId).update({ status, updatedAt: new Date() });
 }
 
 export async function updatePasswordHash(
-  userId: ObjectId,
+  userId: string,
   passwordHash: string,
   mustChangePassword = false,
 ): Promise<void> {
-  const db = await getDb();
+  const db = getDb();
   await db
-    .collection<User>(COLLECTIONS.USERS)
-    .updateOne({ _id: userId }, { $set: { passwordHash, mustChangePassword, updatedAt: new Date() } });
+    .collection(COLLECTIONS.USERS)
+    .doc(userId)
+    .update({ passwordHash, mustChangePassword, updatedAt: new Date() });
 }

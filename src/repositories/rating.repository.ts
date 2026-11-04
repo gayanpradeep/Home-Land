@@ -1,30 +1,42 @@
-import { MongoServerError, ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongodb";
+import { getDb, tsToDate, stripUndefined } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { Feedback, Rating, RatingScore } from "@/types/models";
 import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
 
-const DUPLICATE_KEY_ERROR_CODE = 11000;
-
 interface InsertRatingArgs {
-  branchId: ObjectId;
-  departmentId: ObjectId;
-  deviceId: ObjectId;
+  branchId: string;
+  departmentId: string;
+  deviceId: string;
   counterName: string;
   ratingScore: RatingScore;
   submissionReference: string;
 }
 
+function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Rating {
+  const data = doc.data() as Omit<Rating, "id" | "submittedAt" | "createdAt"> & {
+    submittedAt: unknown;
+    createdAt: unknown;
+  };
+  return {
+    ...data,
+    id: doc.id,
+    submittedAt: tsToDate(data.submittedAt) ?? new Date(0),
+    createdAt: tsToDate(data.createdAt) ?? new Date(0),
+  };
+}
+
 /**
- * Idempotent by submissionReference (unique index). A client retry after a network
- * failure safely resolves to the original rating instead of creating a duplicate.
+ * Idempotent by submissionReference: it is used as the Firestore document ID itself,
+ * so a client retry after a network failure safely resolves to the original rating
+ * instead of creating a duplicate.
  */
 export async function insertRating(args: InsertRatingArgs): Promise<{ rating: Rating; isDuplicate: boolean }> {
-  const db = await getDb();
+  const db = getDb();
   const now = new Date();
-  const collection = db.collection<Rating>(COLLECTIONS.RATINGS);
+  const collection = db.collection(COLLECTIONS.RATINGS);
+  const ref = collection.doc(args.submissionReference);
 
-  const doc: Rating = {
+  const doc = {
     branchId: args.branchId,
     departmentId: args.departmentId,
     deviceId: args.deviceId,
@@ -38,29 +50,29 @@ export async function insertRating(args: InsertRatingArgs): Promise<{ rating: Ra
   };
 
   try {
-    const result = await collection.insertOne(doc);
-    return { rating: { ...doc, _id: result.insertedId }, isDuplicate: false };
+    await ref.create(doc);
+    return { rating: { ...doc, id: ref.id }, isDuplicate: false };
   } catch (error) {
-    if (error instanceof MongoServerError && error.code === DUPLICATE_KEY_ERROR_CODE) {
-      const existing = await collection.findOne({ submissionReference: args.submissionReference });
-      if (existing) return { rating: existing, isDuplicate: true };
+    const existing = await ref.get();
+    if (existing.exists) {
+      return { rating: fromDoc(existing), isDuplicate: true };
     }
     throw error;
   }
 }
 
 interface InsertFeedbackArgs {
-  ratingId: ObjectId;
-  branchId: ObjectId;
-  departmentId: ObjectId;
+  ratingId: string;
+  branchId: string;
+  departmentId: string;
   reasonCodes: string[];
   comment?: string;
 }
 
 export async function insertFeedback(args: InsertFeedbackArgs): Promise<void> {
-  const db = await getDb();
+  const db = getDb();
 
-  const doc: Feedback = {
+  const doc: Omit<Feedback, "id"> = {
     ratingId: args.ratingId,
     branchId: args.branchId,
     departmentId: args.departmentId,
@@ -69,5 +81,5 @@ export async function insertFeedback(args: InsertFeedbackArgs): Promise<void> {
     createdAt: new Date(),
   };
 
-  await db.collection<Feedback>(COLLECTIONS.FEEDBACK).insertOne(doc);
+  await db.collection(COLLECTIONS.FEEDBACK).add(stripUndefined(doc));
 }
