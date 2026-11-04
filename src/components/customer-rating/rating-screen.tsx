@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Loader2, WifiOff } from "lucide-react";
+import { Check, Loader2, WifiOff } from "lucide-react";
 import { RATING_EMOJIS, RATING_LABELS, type RatingScore } from "@/types/models";
 import { NEGATIVE_FEEDBACK_REASONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,11 @@ const SCORES: RatingScore[] = [1, 2, 3, 4, 5];
 const NEGATIVE_THRESHOLD = 2;
 const THANK_YOU_DURATION_MS = 3000;
 const SELECTION_ANIMATION_MS = 450;
+
+// Sampled from the Home Lands brand mark (public/home-lands-icon.png) so the
+// kiosk matches the site's navy + orange identity exactly, not an approximation.
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 type Step = "rating" | "reason" | "submitting" | "thankyou" | "error";
 
@@ -109,15 +114,41 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
   }
 
   return (
-    <div className="flex min-h-screen select-none flex-col bg-slate-50">
-      <header className="flex items-center justify-between border-b bg-white px-6 py-4 sm:px-10">
-        <Image src="/home-lands-logo.jpg" alt="Home Lands" width={160} height={48} className="h-9 w-auto" priority />
-        <span className="rounded-full bg-emerald-100 px-4 py-1.5 text-sm font-medium text-emerald-700">
+    <div className="relative flex min-h-screen select-none flex-col overflow-hidden bg-[#FAF8F4]">
+      {/* Decorative brand backdrop — soft navy/orange glows, no imagery needed */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute -top-40 -left-32 h-[32rem] w-[32rem] rounded-full opacity-[0.06] blur-3xl"
+          style={{ background: NAVY }}
+        />
+        <div
+          className="absolute -right-32 -bottom-40 h-[32rem] w-[32rem] rounded-full opacity-[0.08] blur-3xl"
+          style={{ background: ORANGE }}
+        />
+      </div>
+
+      <header className="relative z-10 flex items-center justify-between border-b border-black/5 bg-white/80 px-6 py-4 backdrop-blur-sm sm:px-10">
+        <Image
+          src="/home-lands-logo-tagline.jpg"
+          alt="Home Lands"
+          width={220}
+          height={110}
+          className="h-12 w-auto sm:h-14"
+          priority
+        />
+        <span
+          className="rounded-full px-4 py-1.5 text-xs font-semibold tracking-widest uppercase sm:text-sm"
+          style={{ backgroundColor: `${ORANGE}1a`, color: ORANGE }}
+        >
           {counterName}
         </span>
       </header>
+      <div
+        className="relative z-10 h-[3px] w-full"
+        style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }}
+      />
 
-      <main className="flex flex-1 items-center justify-center p-6">
+      <main className="relative z-10 flex flex-1 items-center justify-center p-6">
         <AnimatePresence mode="wait">
           {step === "rating" && (
             <motion.div
@@ -126,17 +157,27 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.25 }}
-              className="w-full max-w-4xl text-center"
+              className="w-full max-w-5xl text-center"
             >
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                HOW WAS YOUR EXPERIENCE WITH US?
+              <h1
+                className="text-3xl font-extrabold tracking-tight uppercase sm:text-5xl"
+                style={{ color: NAVY }}
+              >
+                How Was Your Experience?
               </h1>
-              <p className="mt-3 text-base text-slate-500 sm:text-lg">
-                Your feedback helps us serve you better.
+              <div className="mx-auto mt-4 h-1 w-20 rounded-full" style={{ background: ORANGE }} />
+              <p className="mt-5 text-base text-slate-500 sm:text-lg">
+                Your feedback helps us build better communities.
               </p>
-              <p className="mt-1 text-sm text-slate-400">
-                {branchName} &middot; {departmentName}
-              </p>
+
+              <div
+                className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide text-slate-600 uppercase sm:text-sm"
+                style={{ borderColor: `${NAVY}22` }}
+              >
+                <span style={{ color: NAVY }}>{branchName}</span>
+                <span className="text-slate-300">&bull;</span>
+                <span style={{ color: ORANGE }}>{departmentName}</span>
+              </div>
 
               <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-5 sm:gap-5">
                 {SCORES.map((score) => {
@@ -148,7 +189,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                       type="button"
                       disabled={selectedScore !== null}
                       onClick={() => handleSelectEmoji(score)}
-                      whileHover={selectedScore === null ? { scale: 1.04 } : undefined}
+                      whileHover={selectedScore === null ? { scale: 1.04, y: -4 } : undefined}
                       whileTap={selectedScore === null ? { scale: 0.96 } : undefined}
                       animate={{
                         scale: isSelected ? 1.12 : 1,
@@ -156,12 +197,20 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                       }}
                       transition={{ type: "spring", stiffness: 300, damping: 20 }}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-8 shadow-sm",
-                        isSelected && "border-primary shadow-lg ring-4 ring-primary/30",
+                        "flex flex-col items-center justify-center gap-3 rounded-[28px] border bg-white px-4 py-9 shadow-[0_8px_30px_rgb(0,0,0,0.05)] transition-colors",
+                        isSelected ? "border-transparent" : "border-slate-200/80 hover:border-slate-300",
                       )}
+                      style={
+                        isSelected
+                          ? { boxShadow: `0 0 0 4px ${ORANGE}33, 0 12px 30px rgba(0,0,0,0.08)` }
+                          : undefined
+                      }
                     >
                       <span className="text-5xl sm:text-6xl">{RATING_EMOJIS[score]}</span>
-                      <span className="text-sm font-semibold text-slate-700 sm:text-base">
+                      <span
+                        className="text-xs font-bold tracking-wide uppercase sm:text-sm"
+                        style={{ color: isSelected ? ORANGE : NAVY }}
+                      >
                         {RATING_LABELS[score]}
                       </span>
                     </motion.button>
@@ -178,60 +227,64 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
+              className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
             >
-              <div className="text-center">
-                <span className="text-5xl">{RATING_EMOJIS[selectedScore]}</span>
-                <h2 className="mt-4 text-xl font-bold text-slate-900">
-                  How can we improve your experience?
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">This step is optional.</p>
-              </div>
+              <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }} />
+              <div className="p-8">
+                <div className="text-center">
+                  <span className="text-5xl">{RATING_EMOJIS[selectedScore]}</span>
+                  <h2 className="mt-4 text-xl font-bold" style={{ color: NAVY }}>
+                    How can we improve your experience?
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-400">This step is optional.</p>
+                </div>
 
-              <div className="mt-6 flex flex-col gap-2">
-                {NEGATIVE_FEEDBACK_REASONS.map((reason) => {
-                  const isActive = selectedReasons.includes(reason.code);
-                  return (
-                    <button
-                      key={reason.code}
-                      type="button"
-                      onClick={() => toggleReason(reason.code)}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors",
-                        isActive
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-slate-200 text-slate-700 hover:bg-slate-50",
-                      )}
-                    >
-                      {reason.label}
-                    </button>
-                  );
-                })}
-              </div>
+                <div className="mt-6 flex flex-col gap-2">
+                  {NEGATIVE_FEEDBACK_REASONS.map((reason) => {
+                    const isActive = selectedReasons.includes(reason.code);
+                    return (
+                      <button
+                        key={reason.code}
+                        type="button"
+                        onClick={() => toggleReason(reason.code)}
+                        className="rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors"
+                        style={
+                          isActive
+                            ? { borderColor: ORANGE, backgroundColor: `${ORANGE}0d`, color: ORANGE }
+                            : { borderColor: "#e2e8f0", color: "#334155" }
+                        }
+                      >
+                        {reason.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Additional comments (optional)..."
-                rows={3}
-                className="mt-4 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary"
-              />
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Additional comments (optional)..."
+                  rows={3}
+                  className="mt-4 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+                />
 
-              <div className="mt-6 flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={handleSubmitReason}
-                  className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
-                >
-                  Submit Feedback
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSkipReason}
-                  className="rounded-xl px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50"
-                >
-                  Skip
-                </button>
+                <div className="mt-6 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSubmitReason}
+                    className="rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
+                    style={{ backgroundColor: ORANGE }}
+                  >
+                    Submit Feedback
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipReason}
+                    className="rounded-xl px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                  >
+                    Skip
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -244,7 +297,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               exit={{ opacity: 0 }}
               className="flex flex-col items-center text-center"
             >
-              <Loader2 className="h-14 w-14 animate-spin text-primary" strokeWidth={1.5} />
+              <Loader2 className="h-14 w-14 animate-spin" style={{ color: ORANGE }} strokeWidth={1.5} />
               <p className="mt-4 text-base text-slate-500">Saving your feedback...</p>
             </motion.div>
           )}
@@ -259,11 +312,25 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               className="flex flex-col items-center text-center"
             >
               {selectedScore && <span className="text-6xl">{RATING_EMOJIS[selectedScore]}</span>}
-              <CheckCircle2 className="mt-4 h-16 w-16 text-emerald-500" strokeWidth={1.5} />
-              <h1 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">
-                THANK YOU FOR YOUR FEEDBACK!
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.1 }}
+                className="mt-5 flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ backgroundColor: ORANGE }}
+              >
+                <Check className="h-8 w-8 text-white" strokeWidth={2.5} />
+              </motion.div>
+              <h1
+                className="mt-6 text-3xl font-extrabold tracking-tight uppercase sm:text-4xl"
+                style={{ color: NAVY }}
+              >
+                Thank You!
               </h1>
               <p className="mt-2 text-base text-slate-500">Your opinion matters to us.</p>
+              <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase">
+                Trust &middot; Innovation &middot; Excellence
+              </p>
             </motion.div>
           )}
 
@@ -276,7 +343,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               className="flex flex-col items-center text-center"
             >
               <WifiOff className="h-14 w-14 text-amber-500" strokeWidth={1.5} />
-              <h2 className="mt-4 text-xl font-bold text-slate-900">
+              <h2 className="mt-4 text-xl font-bold" style={{ color: NAVY }}>
                 We couldn&apos;t save your feedback
               </h2>
               <p className="mt-1 max-w-sm text-sm text-slate-500">
@@ -286,7 +353,8 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                 <button
                   type="button"
                   onClick={handleRetry}
-                  className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+                  className="rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                  style={{ backgroundColor: ORANGE }}
                 >
                   Try Again
                 </button>
@@ -303,8 +371,12 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
         </AnimatePresence>
       </main>
 
-      <footer className="bg-slate-900 py-3 text-center text-xs font-medium tracking-wide text-slate-300">
-        CUSTOMER SATISFACTION SYSTEM
+      <footer
+        className="relative z-10 py-3.5 text-center text-xs font-semibold tracking-[0.3em] text-white uppercase"
+        style={{ background: NAVY }}
+      >
+        Trust <span style={{ color: ORANGE }}>&middot;</span> Innovation{" "}
+        <span style={{ color: ORANGE }}>&middot;</span> Excellence
       </footer>
     </div>
   );

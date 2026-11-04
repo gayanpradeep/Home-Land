@@ -90,7 +90,7 @@ export function DashboardView() {
     <div className="flex flex-col gap-6 p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Head Office Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Dashboard - Home Land</h1>
           <p className="text-sm text-muted-foreground">Auto-refreshes every 15 seconds.</p>
         </div>
         <FiltersBar
