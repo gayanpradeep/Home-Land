@@ -159,8 +159,16 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               transition={{ duration: 0.25 }}
               className="w-full max-w-5xl text-center"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- animated WebP playback; next/image would re-encode and drop the animation/alpha */}
+              <img
+                src="/video/animation.webp"
+                alt=""
+                width={760}
+                height={428}
+                className="mx-auto h-auto w-56 sm:w-72"
+              />
               <h1
-                className="text-3xl font-extrabold tracking-tight uppercase sm:text-5xl"
+                className="-mt-2 text-3xl font-extrabold tracking-tight uppercase sm:text-5xl"
                 style={{ color: NAVY }}
               >
                 How Was Your Experience?
