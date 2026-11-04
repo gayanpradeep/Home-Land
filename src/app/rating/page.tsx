@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/session";
 import { findBranchById } from "@/repositories/branch.repository";
 import { findDepartmentById } from "@/repositories/department.repository";
 import { isDevBypassEnabled, getDevBypassBranch, getDevBypassDepartment } from "@/lib/dev-bypass";
@@ -7,30 +5,12 @@ import { getAuthenticatedDevice } from "@/lib/device-auth";
 import { RatingScreen } from "@/components/customer-rating/rating-screen";
 import { DeviceActivation } from "@/components/customer-rating/device-activation";
 
+// No customer/staff login here by design: a kiosk is a shared public device, not
+// something a person signs into per-visit. Ratings are attributed purely by the
+// authenticated DEVICE credential (see getAuthenticatedDevice), which an admin
+// bakes in once via the activation screen below. See /login for the separate
+// admin dashboard login.
 export default async function RatingPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login?next=/rating");
-  }
-
-  if (user.userType !== "BRANCH") {
-    redirect("/admin/dashboard");
-  }
-
-  if (!user.branchId || !user.departmentId) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-8 text-center">
-        <p className="text-lg text-destructive">
-          This account has no assigned branch/department. Contact an administrator.
-        </p>
-      </div>
-    );
-  }
-
-  // Ratings are attributed to the authenticated DEVICE, not the logged-in user —
-  // this kiosk's browser must be activated once with an admin-issued device code/secret
-  // before it can submit ratings at all.
   const device = await getAuthenticatedDevice();
   if (!device) {
     return <DeviceActivation />;
@@ -38,13 +18,13 @@ export default async function RatingPage() {
 
   const [branch, department] = isDevBypassEnabled()
     ? [getDevBypassBranch(), getDevBypassDepartment()]
-    : await Promise.all([findBranchById(user.branchId), findDepartmentById(user.departmentId)]);
+    : await Promise.all([findBranchById(device.branchId), findDepartmentById(device.departmentId)]);
 
   return (
     <RatingScreen
       branchName={branch?.branchName ?? ""}
       departmentName={department?.departmentName ?? ""}
-      counterName="Service Counter 01"
+      counterName={device.counterName}
     />
   );
 }

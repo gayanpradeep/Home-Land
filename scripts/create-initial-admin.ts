@@ -21,10 +21,10 @@ async function main() {
   const db = getDb();
   const now = new Date();
 
-  const existing = await db.collection(COLLECTIONS.USERS).where("userType", "==", "ADMIN").limit(1).get();
+  const existing = await db.collection(COLLECTIONS.USERS).limit(1).get();
 
   if (!existing.empty) {
-    console.log("An Admin account already exists. No changes made.");
+    console.log("An admin account already exists. No changes made.");
     return;
   }
 
@@ -34,9 +34,6 @@ async function main() {
     fullName: "System Administrator",
     username,
     passwordHash,
-    userType: "ADMIN",
-    branchId: null,
-    departmentId: null,
     status: "ACTIVE",
     mustChangePassword: true,
     lastLoginAt: null,

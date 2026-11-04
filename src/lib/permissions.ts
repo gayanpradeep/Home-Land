@@ -14,36 +14,11 @@ export async function requireUser(): Promise<User> {
   return user;
 }
 
+// Every logged-in user is an admin (see User in types/models.ts), so this is
+// currently equivalent to requireUser() — kept as its own name for call-site
+// clarity and in case non-admin accounts are reintroduced later.
 export async function requireAdmin(): Promise<User> {
-  const user = await requireUser();
-  if (user.userType !== "ADMIN") {
-    throw new AuthError(403, "Admin access required.");
-  }
-  return user;
-}
-
-export async function requireBranchUser(): Promise<User> {
-  const user = await requireUser();
-  if (user.userType !== "BRANCH") {
-    throw new AuthError(403, "Branch user access required.");
-  }
-  return user;
-}
-
-/** Throws unless the Admin, or a branch user scoped to this exact branch+department, is asking. */
-export function assertBranchDepartmentScope(
-  user: User,
-  branchId: string,
-  departmentId: string,
-): void {
-  if (user.userType === "ADMIN") return;
-
-  const sameBranch = user.branchId === branchId;
-  const sameDepartment = user.departmentId === departmentId;
-
-  if (!sameBranch || !sameDepartment) {
-    throw new AuthError(403, "Not authorized for this branch/department.");
-  }
+  return requireUser();
 }
 
 export function handleAuthError(error: unknown): NextResponse | null {

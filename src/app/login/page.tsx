@@ -12,7 +12,7 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   if (user) {
-    redirect(user.userType === "ADMIN" ? "/admin/dashboard" : "/rating");
+    redirect("/admin/dashboard");
   }
 
   return (
@@ -27,7 +27,7 @@ export default async function LoginPage({
             priority
             className="h-auto w-56"
           />
-          <h1 className="text-xl font-semibold">Customer Experience Rating System</h1>
+          <h1 className="text-xl font-semibold">Admin Dashboard Login</h1>
         </div>
         <LoginForm nextPath={next} />
       </div>

@@ -44,26 +44,12 @@ export const activateDeviceSchema = z.object({
   activationSecret: z.string().min(1).max(200),
 });
 
-export const createUserSchema = z
-  .object({
-    fullName: z.string().trim().min(1).max(200),
-    username: usernameSchema,
-    password: z.string().min(8).max(200),
-    userType: z.enum(["ADMIN", "BRANCH"]),
-    branchId: z.string().min(1).optional(),
-    departmentId: z.string().min(1).optional(),
-    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
-  })
-  .superRefine((data, ctx) => {
-    if (data.userType === "BRANCH") {
-      if (!data.branchId) {
-        ctx.addIssue({ code: "custom", path: ["branchId"], message: "Branch is required." });
-      }
-      if (!data.departmentId) {
-        ctx.addIssue({ code: "custom", path: ["departmentId"], message: "Department is required." });
-      }
-    }
-  });
+export const createUserSchema = z.object({
+  fullName: z.string().trim().min(1).max(200),
+  username: usernameSchema,
+  password: z.string().min(8).max(200),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
 
 export const dateRangePresetSchema = z.enum([
   "today",

@@ -1,4 +1,3 @@
-export type UserType = "ADMIN" | "BRANCH";
 export type AccountStatus = "ACTIVE" | "INACTIVE";
 
 export type RatingScore = 1 | 2 | 3 | 4 | 5;
@@ -40,14 +39,13 @@ export interface Department {
   updatedAt: Date;
 }
 
+// Every account is an admin — branch-level staff never log in; ratings are
+// attributed purely by the authenticated kiosk device (see Device below).
 export interface User {
   id?: string;
   fullName: string;
   username: string;
   passwordHash: string;
-  userType: UserType;
-  branchId: string | null;
-  departmentId: string | null;
   status: AccountStatus;
   mustChangePassword: boolean;
   lastLoginAt: Date | null;

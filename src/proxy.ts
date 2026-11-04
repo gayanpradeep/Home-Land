@@ -9,7 +9,10 @@ export function proxy(request: NextRequest) {
   const hasSession = devBypass || request.cookies.has(SESSION_COOKIE_NAME);
   const { pathname } = request.nextUrl;
 
-  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/rating");
+  // /rating is deliberately NOT session-gated — it's a public kiosk screen guarded
+  // only by its own device-activation check (see src/app/rating/page.tsx), not a
+  // user login.
+  const isProtected = pathname.startsWith("/admin");
 
   if (isProtected && !hasSession) {
     const loginUrl = new URL("/login", request.url);
@@ -21,5 +24,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/rating/:path*"],
+  matcher: ["/admin/:path*"],
 };

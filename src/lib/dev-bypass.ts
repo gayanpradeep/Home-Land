@@ -14,16 +14,11 @@ export const DEV_BYPASS_SESSION_COOKIE = "hl_dev_bypass_session";
 const MOCK_ID = "preview-mock-id";
 
 export function getDevBypassUser(): User {
-  const userType = process.env.DEV_BYPASS_ROLE === "BRANCH" ? "BRANCH" : "ADMIN";
-
   return {
     id: MOCK_ID,
     username: "preview",
     passwordHash: "",
-    fullName: "Preview User",
-    userType,
-    branchId: userType === "BRANCH" ? MOCK_ID : null,
-    departmentId: userType === "BRANCH" ? MOCK_ID : null,
+    fullName: "Preview Admin",
     status: "ACTIVE",
     mustChangePassword: false,
     lastLoginAt: null,

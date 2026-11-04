@@ -6,9 +6,6 @@ export interface CreateUserArgs {
   fullName: string;
   username: string;
   passwordHash: string;
-  userType: "ADMIN" | "BRANCH";
-  branchId: string | null;
-  departmentId: string | null;
   status: "ACTIVE" | "INACTIVE";
 }
 
@@ -53,11 +50,7 @@ export async function listUsers(): Promise<User[]> {
 
 export async function countActiveAdmins(excludeUserId?: string): Promise<number> {
   const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.USERS)
-    .where("userType", "==", "ADMIN")
-    .where("status", "==", "ACTIVE")
-    .get();
+  const snapshot = await db.collection(COLLECTIONS.USERS).where("status", "==", "ACTIVE").get();
   return snapshot.docs.filter((doc) => doc.id !== excludeUserId).length;
 }
 
@@ -78,9 +71,6 @@ export async function createUser(args: CreateUserArgs): Promise<User> {
     fullName: args.fullName,
     username: args.username,
     passwordHash: args.passwordHash,
-    userType: args.userType,
-    branchId: args.branchId,
-    departmentId: args.departmentId,
     status: args.status,
     mustChangePassword: true,
     lastLoginAt: null,

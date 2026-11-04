@@ -31,14 +31,6 @@ const indexes = {
       ],
     },
     {
-      collectionGroup: "users",
-      queryScope: "COLLECTION",
-      fields: [
-        { fieldPath: "userType", order: "ASCENDING" },
-        { fieldPath: "status", order: "ASCENDING" },
-      ],
-    },
-    {
       collectionGroup: "ratings",
       queryScope: "COLLECTION",
       fields: [

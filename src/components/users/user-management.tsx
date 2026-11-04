@@ -16,9 +16,6 @@ interface UserRow {
   id: string;
   fullName: string;
   username: string;
-  userType: "ADMIN" | "BRANCH";
-  branchName: string | null;
-  departmentName: string | null;
   status: "ACTIVE" | "INACTIVE";
   lastLoginAt: string | null;
 }
@@ -39,7 +36,7 @@ export function UserManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           <p className="text-sm text-muted-foreground">
-            Create and manage Admin and Branch user accounts.
+            Create and manage admin dashboard accounts.
           </p>
         </div>
         <CreateUserDialog />
@@ -51,30 +48,27 @@ export function UserManagement() {
             <TableRow>
               <TableHead>Full Name</TableHead>
               <TableHead>Username</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead>Department</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
                   Loading users...
                 </TableCell>
               </TableRow>
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-destructive">
+                <TableCell colSpan={3} className="text-center text-sm text-destructive">
                   Unable to load users.
                 </TableCell>
               </TableRow>
             )}
             {data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
                   No users yet. Click &quot;Add User&quot; to create one.
                 </TableCell>
               </TableRow>
@@ -83,13 +77,6 @@ export function UserManagement() {
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.fullName}</TableCell>
                 <TableCell>{user.username}</TableCell>
-                <TableCell>
-                  <Badge variant={user.userType === "ADMIN" ? "default" : "secondary"}>
-                    {user.userType === "ADMIN" ? "Admin" : "Branch"}
-                  </Badge>
-                </TableCell>
-                <TableCell>{user.branchName ?? "—"}</TableCell>
-                <TableCell>{user.departmentName ?? "—"}</TableCell>
                 <TableCell>
                   <Badge variant={user.status === "ACTIVE" ? "default" : "outline"}>
                     {user.status === "ACTIVE" ? "Active" : "Inactive"}

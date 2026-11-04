@@ -9,8 +9,6 @@ import {
   createUser,
   DuplicateUsernameError,
 } from "@/repositories/user.repository";
-import { listBranches } from "@/repositories/branch.repository";
-import { listDepartments } from "@/repositories/department.repository";
 import { isDevBypassEnabled } from "@/lib/dev-bypass";
 import { toPublicUser } from "@/lib/serialize";
 
@@ -19,19 +17,6 @@ const PREVIEW_USERS = [
     id: "preview-user-0",
     fullName: "System Administrator",
     username: "admin",
-    userType: "ADMIN" as const,
-    branchName: null,
-    departmentName: null,
-    status: "ACTIVE" as const,
-    lastLoginAt: null,
-  },
-  {
-    id: "preview-user-1",
-    fullName: "Kamal Perera",
-    username: "kamal.perera",
-    userType: "BRANCH" as const,
-    branchName: "Colombo Head Branch",
-    departmentName: "Sales",
     status: "ACTIVE" as const,
     lastLoginAt: null,
   },
@@ -45,23 +30,13 @@ export async function GET() {
       return NextResponse.json(PREVIEW_USERS);
     }
 
-    const [users, branches, departments] = await Promise.all([
-      listUsers(),
-      listBranches(),
-      listDepartments(),
-    ]);
-
-    const branchNameById = new Map(branches.map((b) => [b.id, b.branchName]));
-    const departmentNameById = new Map(departments.map((d) => [d.id, d.departmentName]));
+    const users = await listUsers();
 
     return NextResponse.json(
       users.map((u) => ({
         id: u.id,
         fullName: u.fullName,
         username: u.username,
-        userType: u.userType,
-        branchName: u.branchId ? (branchNameById.get(u.branchId) ?? null) : null,
-        departmentName: u.departmentId ? (departmentNameById.get(u.departmentId) ?? null) : null,
         status: u.status,
         lastLoginAt: u.lastLoginAt,
       })),
@@ -97,9 +72,6 @@ export async function POST(request: Request) {
       fullName: input.fullName,
       username: input.username,
       passwordHash,
-      userType: input.userType,
-      branchId: input.userType === "BRANCH" && input.branchId ? input.branchId : null,
-      departmentId: input.userType === "BRANCH" && input.departmentId ? input.departmentId : null,
       status: input.status,
     });
 
