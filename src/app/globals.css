@@ -128,3 +128,12 @@
     @apply font-sans;
   }
 }
+
+/* Admin panel uses sharp rectangular corners throughout, not the rounded
+   default used on the kiosk/login screens. Every rounded-sm/md/lg/xl/2xl/
+   3xl/4xl class resolves through --radius (see the @theme inline block
+   above), so zeroing it here flattens every shadcn + custom component
+   inside .admin-shell without touching each one individually. */
+.admin-shell {
+  --radius: 0px;
+}

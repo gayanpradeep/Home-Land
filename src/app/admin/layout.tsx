@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="admin-shell min-h-screen bg-muted/30">
       <AdminHeader fullName={user.fullName} />
       {children}
     </div>

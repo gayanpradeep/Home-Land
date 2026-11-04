@@ -21,7 +21,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { CreateDeviceDialog } from "@/components/devices/create-device-dialog";
-import { Trash2 } from "lucide-react";
+import { Trash2, Smartphone, Inbox, AlertTriangle, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 interface DeviceRow {
   id: string;
@@ -77,62 +81,112 @@ export function DeviceManagement() {
     }
   }
 
+  const activeCount = data?.filter((d) => d.status === "ACTIVE").length ?? 0;
+
   return (
     <div className="flex flex-col gap-6 p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Device Management</h1>
-          <p className="text-sm text-muted-foreground">
-            Register kiosk tablets and assign each to a branch, department and counter.
-            Deactivating a device immediately blocks it from submitting ratings.
-          </p>
+        <div className="flex items-start gap-3">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+            style={{ backgroundColor: `${NAVY}0f`, color: NAVY }}
+          >
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Device Management</h1>
+              {data && data.length > 0 && (
+                <span
+                  className="px-2.5 py-0.5 text-xs font-semibold"
+                  style={{ backgroundColor: `${ORANGE}1a`, color: ORANGE }}
+                >
+                  {activeCount} active
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Register kiosk tablets and assign each to a branch, department and counter.
+              Deactivating a device immediately blocks it from submitting ratings.
+            </p>
+          </div>
         </div>
         <CreateDeviceDialog />
       </div>
 
-      <div className="rounded-xl border bg-white">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Device Code</TableHead>
-              <TableHead>Counter</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Seen</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Device</TableHead>
+              <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Branch / Department</TableHead>
+              <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Status</TableHead>
+              <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Last Seen</TableHead>
+              <TableHead className="bg-slate-50/80 text-right font-semibold text-slate-600">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" style={{ color: ORANGE }} />
                   Loading devices...
                 </TableCell>
               </TableRow>
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-destructive">
+                <TableCell colSpan={5} className="py-10 text-center text-sm text-destructive">
+                  <AlertTriangle className="mx-auto mb-2 h-5 w-5" />
                   Unable to load devices.
                 </TableCell>
               </TableRow>
             )}
             {data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                  <Inbox className="mx-auto mb-2 h-6 w-6 text-slate-300" />
                   No devices yet. Click &quot;Register Device&quot; to add one.
                 </TableCell>
               </TableRow>
             )}
             {data?.map((device) => (
-              <TableRow key={device.id}>
-                <TableCell className="font-mono text-sm font-medium">{device.deviceCode}</TableCell>
-                <TableCell>{device.counterName}</TableCell>
-                <TableCell>{device.branchName}</TableCell>
-                <TableCell>{device.departmentName}</TableCell>
+              <TableRow key={device.id} className="hover:bg-slate-50/60">
                 <TableCell>
-                  <Badge variant={device.status === "ACTIVE" ? "default" : "outline"}>
+                  <div className="flex flex-col gap-0.5">
+                    <span
+                      className="w-fit rounded-md px-2 py-0.5 font-mono text-xs font-bold"
+                      style={{ backgroundColor: `${NAVY}0d`, color: NAVY }}
+                    >
+                      {device.deviceCode}
+                    </span>
+                    <span className="text-xs text-slate-500">{device.counterName}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-slate-800">{device.branchName}</span>
+                    <span className="text-xs" style={{ color: ORANGE }}>
+                      {device.departmentName}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    className={cn(
+                      "gap-1.5 border-0 font-medium",
+                      device.status === "ACTIVE" ? "" : "bg-slate-100 text-slate-500",
+                    )}
+                    style={
+                      device.status === "ACTIVE"
+                        ? { backgroundColor: `${ORANGE}1a`, color: ORANGE }
+                        : undefined
+                    }
+                  >
+                    <span
+                      className={cn("h-1.5 w-1.5", device.status === "ACTIVE" ? "" : "bg-slate-400")}
+                      style={device.status === "ACTIVE" ? { backgroundColor: ORANGE } : undefined}
+                    />
                     {device.status === "ACTIVE" ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
@@ -141,14 +195,19 @@ export function DeviceManagement() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => toggleStatus(device)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => toggleStatus(device)}
+                    >
                       {device.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
                     </Button>
                     {device.status === "INACTIVE" && (
                       <Button
                         variant="outline"
                         size="icon"
-                        className="text-destructive hover:text-destructive"
+                        className="rounded-lg text-destructive hover:text-destructive"
                         onClick={() => {
                           setDeleteError(null);
                           setDeleteTarget(device);
@@ -169,7 +228,10 @@ export function DeviceManagement() {
       <Dialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Device</DialogTitle>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <DialogTitle className="mt-3">Delete Device</DialogTitle>
             <DialogDescription>
               {deleteTarget && (
                 <>
@@ -181,13 +243,23 @@ export function DeviceManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          {deleteError && (
+            <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+              {deleteError}
+            </p>
+          )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button type="button" variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+            <Button
+              type="button"
+              variant="destructive"
+              className="rounded-xl"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
               {isDeleting ? "Deleting..." : "Delete Device"}
             </Button>
           </DialogFooter>
