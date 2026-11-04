@@ -9,6 +9,11 @@ export async function findDepartmentById(id: ObjectId | string): Promise<Departm
   return db.collection<Department>(COLLECTIONS.DEPARTMENTS).findOne({ _id });
 }
 
+export async function listDepartments(): Promise<Department[]> {
+  const db = await getDb();
+  return db.collection<Department>(COLLECTIONS.DEPARTMENTS).find({}).sort({ departmentName: 1 }).toArray();
+}
+
 export async function listDepartmentsByBranch(branchId: ObjectId): Promise<Department[]> {
   const db = await getDb();
   return db
