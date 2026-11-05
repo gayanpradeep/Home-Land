@@ -159,3 +159,56 @@ export function getDevBypassDepartmentPerformance() {
     };
   }).sort((a, b) => b.averageRating - a.averageRating);
 }
+
+const MOCK_NEGATIVE_FEEDBACK = [
+  {
+    id: "preview-feedback-1",
+    ratingScore: 1 as const,
+    emoji: "\u{1F621}",
+    ratingLabel: "Very Dissatisfied",
+    branchName: "Colombo Head Branch",
+    departmentName: "Customer Service",
+    reasonCodes: ["LONG_WAIT", "STAFF_ATTITUDE"],
+    comment: "Waited almost an hour and the staff member was dismissive when I asked for an update.",
+    submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+  },
+  {
+    id: "preview-feedback-2",
+    ratingScore: 2 as const,
+    emoji: "\u{1F641}",
+    ratingLabel: "Dissatisfied",
+    branchName: "Kandy Branch",
+    departmentName: "Finance",
+    reasonCodes: ["UNRESOLVED_ISSUE"],
+    comment: undefined,
+    submittedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
+  },
+  {
+    id: "preview-feedback-3",
+    ratingScore: 1 as const,
+    emoji: "\u{1F621}",
+    ratingLabel: "Very Dissatisfied",
+    branchName: "Galle Branch",
+    departmentName: "Sales",
+    reasonCodes: ["SLOW_SERVICE"],
+    comment: "The queue management system was down for most of the visit.",
+    submittedAt: new Date(Date.now() - 26 * 60 * 60 * 1000),
+  },
+];
+
+export function getDevBypassNegativeFeedback() {
+  return MOCK_NEGATIVE_FEEDBACK;
+}
+
+const MOCK_FEEDBACK_REASONS = [
+  { id: "preview-reason-1", code: "SLOW_SERVICE", label: "Service was too slow", status: "ACTIVE" as const },
+  { id: "preview-reason-2", code: "STAFF_ATTITUDE", label: "Staff attitude", status: "ACTIVE" as const },
+  { id: "preview-reason-3", code: "LONG_WAIT", label: "Long waiting time", status: "ACTIVE" as const },
+  { id: "preview-reason-4", code: "UNRESOLVED_ISSUE", label: "My issue was not resolved", status: "ACTIVE" as const },
+  { id: "preview-reason-5", code: "FACILITY", label: "Facility / environment", status: "ACTIVE" as const },
+  { id: "preview-reason-6", code: "OTHER", label: "Other", status: "ACTIVE" as const },
+];
+
+export function getDevBypassFeedbackReasons() {
+  return MOCK_FEEDBACK_REASONS;
+}

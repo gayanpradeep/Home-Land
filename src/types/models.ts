@@ -91,6 +91,19 @@ export interface Feedback {
   createdAt: Date;
 }
 
+// Admin-managed options shown on the kiosk's reason step after a Very
+// Dissatisfied / Dissatisfied rating. Codes are snapshotted as plain strings
+// into Feedback.reasonCodes at submission time, so editing or deleting a
+// reason here never changes already-submitted feedback.
+export interface FeedbackReason {
+  id?: string;
+  code: string;
+  label: string;
+  status: AccountStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Session {
   id?: string;
   userId: string;

@@ -5,6 +5,7 @@ export const COLLECTIONS = {
   DEVICES: "devices",
   RATINGS: "ratings",
   FEEDBACK: "feedback",
+  FEEDBACK_REASONS: "feedbackReasons",
   SESSIONS: "sessions",
   DAILY_SUMMARIES: "dailySummaries",
   AUDIT_LOGS: "auditLogs",

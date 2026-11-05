@@ -8,6 +8,7 @@ import { FiltersBar } from "@/components/dashboard/filters-bar";
 import { EmojiDistributionChart } from "@/components/dashboard/emoji-distribution-chart";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { PerformanceBarChart } from "@/components/dashboard/performance-bar-chart";
+import { NegativeFeedbackList, type FeedbackRow } from "@/components/dashboard/negative-feedback-list";
 import type { DateRangePreset } from "@/lib/date-range";
 import type { DashboardSummary, TrendPoint, EntityPerformance } from "@/services/dashboard.service";
 
@@ -63,6 +64,12 @@ export function DashboardView() {
   const departmentPerfQuery = useQuery<EntityPerformance[]>({
     queryKey: ["dashboard", "departments", query],
     queryFn: () => fetchJson(`/api/admin/dashboard/departments?${query}`),
+    refetchInterval: REFRESH_INTERVAL_MS,
+  });
+
+  const feedbackQuery = useQuery<FeedbackRow[]>({
+    queryKey: ["dashboard", "feedback", query],
+    queryFn: () => fetchJson(`/api/admin/dashboard/feedback?${query}`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 
@@ -153,6 +160,8 @@ export function DashboardView() {
           {departmentPerfQuery.data && <PerformanceBarChart data={departmentPerfQuery.data} />}
         </div>
       </div>
+
+      <NegativeFeedbackList items={feedbackQuery.data} isLoading={feedbackQuery.isLoading} />
     </div>
   );
 }

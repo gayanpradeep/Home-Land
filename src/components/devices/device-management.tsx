@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,13 @@ import { cn } from "@/lib/utils";
 const NAVY = "#1b2a56";
 const ORANGE = "#f47321";
 
+// The kiosk screen pings /api/device/heartbeat roughly every 25s while it's
+// sitting on the rating page (see rating-screen.tsx), so anything seen more
+// recently than this is still genuinely open on that device, not just a
+// leftover timestamp from its last rating submission or page load.
+const ONLINE_THRESHOLD_MS = 60_000;
+const PRESENCE_POLL_MS = 15_000;
+
 interface DeviceRow {
   id: string;
   deviceCode: string;
@@ -37,11 +44,17 @@ interface DeviceRow {
   lastSeenAt: string | null;
 }
 
+function isDeviceOnline(device: DeviceRow, now: number): boolean {
+  if (device.status !== "ACTIVE" || !device.lastSeenAt) return false;
+  return now - new Date(device.lastSeenAt).getTime() < ONLINE_THRESHOLD_MS;
+}
+
 export function DeviceManagement() {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<DeviceRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const { data, isLoading, error } = useQuery<DeviceRow[]>({
     queryKey: ["admin", "devices"],
@@ -50,7 +63,16 @@ export function DeviceManagement() {
       if (!res.ok) throw new Error("Failed to load devices");
       return res.json();
     },
+    refetchInterval: PRESENCE_POLL_MS,
   });
+
+  // Re-render on the same cadence as the refetch so a device that goes quiet
+  // flips to Offline in the UI even between fetches, not just when new data
+  // happens to arrive.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), PRESENCE_POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   async function toggleStatus(device: DeviceRow) {
     const nextStatus = device.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -121,6 +143,7 @@ export function DeviceManagement() {
               <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Device</TableHead>
               <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Branch / Department</TableHead>
               <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Status</TableHead>
+              <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Online</TableHead>
               <TableHead className="bg-slate-50/80 font-semibold text-slate-600">Last Seen</TableHead>
               <TableHead className="bg-slate-50/80 text-right font-semibold text-slate-600">Actions</TableHead>
             </TableRow>
@@ -128,7 +151,7 @@ export function DeviceManagement() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" style={{ color: ORANGE }} />
                   Loading devices...
                 </TableCell>
@@ -136,7 +159,7 @@ export function DeviceManagement() {
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-destructive">
+                <TableCell colSpan={6} className="py-10 text-center text-sm text-destructive">
                   <AlertTriangle className="mx-auto mb-2 h-5 w-5" />
                   Unable to load devices.
                 </TableCell>
@@ -144,7 +167,7 @@ export function DeviceManagement() {
             )}
             {data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                   <Inbox className="mx-auto mb-2 h-6 w-6 text-slate-300" />
                   No devices yet. Click &quot;Register Device&quot; to add one.
                 </TableCell>
@@ -189,6 +212,29 @@ export function DeviceManagement() {
                     />
                     {device.status === "ACTIVE" ? "Active" : "Inactive"}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {device.status === "ACTIVE" ? (
+                    <Badge
+                      className={cn(
+                        "gap-1.5 border-0 font-medium",
+                        isDeviceOnline(device, now) ? "" : "bg-slate-100 text-slate-500",
+                      )}
+                      style={
+                        isDeviceOnline(device, now)
+                          ? { backgroundColor: "#0ca30c1a", color: "#0ca30c" }
+                          : undefined
+                      }
+                    >
+                      <span
+                        className={cn("h-1.5 w-1.5", isDeviceOnline(device, now) ? "" : "bg-slate-400")}
+                        style={isDeviceOnline(device, now) ? { backgroundColor: "#0ca30c" } : undefined}
+                      />
+                      {isDeviceOnline(device, now) ? "Online" : "Offline"}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-slate-400">&mdash;</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : "Never"}

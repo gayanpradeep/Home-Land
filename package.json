@@ -10,6 +10,7 @@
     "db:create-indexes": "tsx scripts/create-indexes.ts",
     "db:seed-branches": "tsx scripts/seed-branches.ts",
     "db:seed-departments": "tsx scripts/seed-departments.ts",
+    "db:seed-feedback-reasons": "tsx scripts/seed-feedback-reasons.ts",
     "db:create-initial-admin": "tsx scripts/create-initial-admin.ts",
     "test:e2e": "playwright test",
     "test:unit": "vitest run"

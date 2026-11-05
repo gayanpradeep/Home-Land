@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { Check, Loader2, WifiOff } from "lucide-react";
 import { RATING_EMOJIS, RATING_LABELS, type RatingScore } from "@/types/models";
 import { NEGATIVE_FEEDBACK_REASONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+interface FeedbackReasonOption {
+  code: string;
+  label: string;
+}
 
 const SCORES: RatingScore[] = [1, 2, 3, 4, 5];
 const NEGATIVE_THRESHOLD = 2;
@@ -14,8 +20,11 @@ const NEGATIVE_THRESHOLD = 2;
 // (score > NEGATIVE_THRESHOLD) — a dissatisfied customer still sees a plain
 // thank-you, no QR, and a much shorter hold since there's nothing to scan.
 const GOOGLE_REVIEW_DURATION_SECONDS = 10;
-const PLAIN_THANKYOU_DURATION_SECONDS = 8;
+const PLAIN_THANKYOU_DURATION_SECONDS = 4;
 const SELECTION_ANIMATION_MS = 450;
+// Matches ONLINE_THRESHOLD_MS in device-management.tsx — stay comfortably
+// under it so a missed beat or two doesn't flip the device to "Offline".
+const HEARTBEAT_INTERVAL_MS = 25_000;
 
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -103,6 +112,20 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
     ? GOOGLE_REVIEW_DURATION_SECONDS
     : PLAIN_THANKYOU_DURATION_SECONDS;
 
+  // Admin-managed under Reference > Feedback Reasons. Falls back to the
+  // built-in defaults so the reason step never renders empty — before the
+  // fetch resolves, offline, or if the admin hasn't configured any yet.
+  const feedbackReasonsQuery = useQuery<FeedbackReasonOption[]>({
+    queryKey: ["device", "feedbackReasons"],
+    queryFn: async () => {
+      const res = await fetch("/api/device/feedback-reasons");
+      if (!res.ok) throw new Error("Failed to load feedback reasons");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const feedbackReasons = feedbackReasonsQuery.data ?? NEGATIVE_FEEDBACK_REASONS;
+
   // Each kiosk runs this component as its own independent instance (own tab,
   // own state) — this interval only ever touches this device's local state,
   // so one device's countdown/reset can never affect another's.
@@ -119,6 +142,21 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
       resetToRating();
     }
   }, [step, secondsLeft]);
+
+  // Keeps this device's lastSeenAt fresh while the kiosk sits idle on this
+  // screen (a rating submission already touches it, but a kiosk with no
+  // customers for a while would otherwise look offline in Device Management
+  // even though it's sitting right here on the rating screen).
+  useEffect(() => {
+    const ping = () => {
+      void fetch("/api/device/heartbeat", { method: "POST" }).catch(() => {
+        // Best-effort only — a missed heartbeat just delays the next one.
+      });
+    };
+    ping();
+    const interval = setInterval(ping, HEARTBEAT_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   function resetToRating() {
     setStep("rating");
@@ -191,7 +229,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
   }
 
   return (
-    <div className="relative flex min-h-screen select-none flex-col overflow-hidden bg-[#FAF8F4]">
+    <div className="relative flex h-dvh select-none flex-col overflow-hidden bg-[#FAF8F4]">
       {/* Decorative brand backdrop — soft navy/orange glows, no imagery needed */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
@@ -216,28 +254,32 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
         </div>
       )}
 
-      <header className="relative z-10 flex items-center justify-between border-b border-black/5 bg-white/80 px-6 py-4 backdrop-blur-sm sm:px-10">
+      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-black/5 bg-white/80 px-6 backdrop-blur-sm sm:h-20 sm:px-10">
         <Image
           src="/home-lands-logo-tagline.png"
           alt="Home Lands"
           width={220}
           height={110}
-          className="h-12 w-auto sm:h-14"
+          className="h-28 w-auto shrink-0 sm:h-32"
           priority
         />
-        <span
-          className="rounded-full px-4 py-1.5 text-xs font-semibold tracking-widest uppercase sm:text-sm"
-          style={{ backgroundColor: `${ORANGE}1a`, color: ORANGE }}
+        <div
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-semibold tracking-wide text-slate-600 uppercase sm:gap-2 sm:px-4 sm:text-xs"
+          style={{ borderColor: `${NAVY}22`, backgroundColor: `${ORANGE}0d` }}
         >
-          {counterName}
-        </span>
+          <span style={{ color: NAVY }}>{branchName}</span>
+          <span className="text-slate-300">&bull;</span>
+          <span style={{ color: NAVY }}>{departmentName}</span>
+          <span className="text-slate-300">&bull;</span>
+          <span style={{ color: ORANGE }}>{counterName}</span>
+        </div>
       </header>
       <div
         className="relative z-10 h-[3px] w-full"
         style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }}
       />
 
-      <main className="relative z-10 flex flex-1 items-start justify-center px-6 pt-8 pb-6 sm:pt-10">
+      <main className="relative z-10 flex min-h-0 flex-1 items-start justify-center overflow-hidden px-6 pt-3 pb-2 sm:pt-5">
         <AnimatePresence mode="wait">
           {step === "rating" && (
             <motion.div
@@ -246,8 +288,12 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.25 }}
-              className="w-full max-w-5xl text-center"
+              className="flex h-full w-full max-w-5xl flex-col items-center justify-start text-center"
             >
+              {/* Every size/gap below uses clamp(...,Nvh,...) rather than a fixed
+                  value so this whole block scales to fit short browser windows
+                  and small tablets without clipping or needing to scroll, while
+                  still growing to fill tall kiosk displays. */}
               <video
                 autoPlay
                 muted
@@ -255,31 +301,25 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                 playsInline
                 width={760}
                 height={428}
-                className="mx-auto h-auto w-56 sm:w-72"
+                className="mx-auto h-auto w-[clamp(11rem,32vh,26rem)] shrink-0"
               >
                 <source src="/video/animation.webm" type="video/webm" />
               </video>
               <h1
-                className="-mt-2 text-3xl font-extrabold tracking-tight uppercase sm:text-5xl"
+                className="text-[clamp(1.625rem,6.5vh,3.25rem)] leading-tight font-extrabold tracking-tight uppercase"
                 style={{ color: NAVY }}
               >
                 How Was Your Experience?
               </h1>
-              <div className="mx-auto mt-4 h-1 w-20 rounded-full" style={{ background: ORANGE }} />
-              <p className="mt-5 text-base text-slate-500 sm:text-lg">
+              <div
+                className="mx-auto mt-[clamp(0.5rem,1.5vh,1rem)] h-1 w-16 shrink-0 rounded-full"
+                style={{ background: ORANGE }}
+              />
+              <p className="mt-[clamp(0.5rem,1.5vh,1.25rem)] text-[clamp(0.875rem,2.2vh,1.125rem)] text-slate-500">
                 Your feedback helps us build better communities.
               </p>
 
-              <div
-                className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide text-slate-600 uppercase sm:text-sm"
-                style={{ borderColor: `${NAVY}22` }}
-              >
-                <span style={{ color: NAVY }}>{branchName}</span>
-                <span className="text-slate-300">&bull;</span>
-                <span style={{ color: ORANGE }}>{departmentName}</span>
-              </div>
-
-              <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-5 sm:gap-5">
+              <div className="mt-[clamp(0.625rem,2vh,1.25rem)] grid w-full grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
                 {SCORES.map((score) => {
                   const isSelected = selectedScore === score;
                   const isDimmed = selectedScore !== null && !isSelected;
@@ -297,7 +337,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                       }}
                       transition={{ type: "spring", stiffness: 300, damping: 20 }}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-3 rounded-[28px] border bg-white px-4 py-9 shadow-[0_8px_30px_rgb(0,0,0,0.05)] transition-colors",
+                        "flex flex-col items-center justify-center gap-[clamp(0.5rem,1.5vh,0.75rem)] rounded-[28px] border bg-white px-4 py-[clamp(1rem,4vh,2.25rem)] shadow-[0_8px_30px_rgb(0,0,0,0.05)] transition-colors",
                         isSelected ? "border-transparent" : "border-slate-200/80 hover:border-slate-300",
                       )}
                       style={
@@ -307,7 +347,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                       }
                     >
                       <motion.span
-                        className="text-5xl sm:text-6xl"
+                        className="text-[clamp(2.25rem,8vh,4rem)] leading-none"
                         animate={
                           isSelected
                             ? { scale: [1, 1.4, 1.1], rotate: [0, -10, 10, 0], x: 0, y: 0 }
@@ -326,7 +366,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                         {RATING_EMOJIS[score]}
                       </motion.span>
                       <span
-                        className="text-xs font-bold tracking-wide uppercase sm:text-sm"
+                        className="text-[clamp(0.75rem,2vh,0.9375rem)] font-bold tracking-wide uppercase"
                         style={{ color: isSelected ? ORANGE : NAVY }}
                       >
                         {RATING_LABELS[score]}
@@ -345,27 +385,31 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
+              className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
             >
-              <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }} />
-              <div className="p-8">
-                <div className="text-center">
-                  <span className="text-5xl">{RATING_EMOJIS[selectedScore]}</span>
-                  <h2 className="mt-4 text-xl font-bold" style={{ color: NAVY }}>
-                    How can we improve your experience?
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-400">This step is optional.</p>
-                </div>
+              <div className="h-1.5 w-full shrink-0" style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }} />
 
-                <div className="mt-6 flex flex-col gap-2">
-                  {NEGATIVE_FEEDBACK_REASONS.map((reason) => {
+              <div className="shrink-0 px-6 pt-5 text-center">
+                <span className="text-4xl">{RATING_EMOJIS[selectedScore]}</span>
+                <h2 className="mt-2 text-lg font-bold" style={{ color: NAVY }}>
+                  How can we improve your experience?
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">This step is optional.</p>
+              </div>
+
+              {/* The reason list + comment box is the only part that may need to
+                  scroll internally on a short screen — the header above and the
+                  action buttons below always stay pinned in view. */}
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
+                <div className="flex flex-col gap-1.5">
+                  {feedbackReasons.map((reason) => {
                     const isActive = selectedReasons.includes(reason.code);
                     return (
                       <button
                         key={reason.code}
                         type="button"
                         onClick={() => toggleReason(reason.code)}
-                        className="rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors"
+                        className="rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition-colors"
                         style={
                           isActive
                             ? { borderColor: ORANGE, backgroundColor: `${ORANGE}0d`, color: ORANGE }
@@ -382,15 +426,17 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Additional comments (optional)..."
-                  rows={3}
-                  className="mt-4 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-400"
+                  rows={2}
+                  className="mt-3 w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-slate-400"
                 />
+              </div>
 
-                <div className="mt-6 flex flex-col gap-2">
+              <div className="shrink-0 px-6 pb-5">
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={handleSubmitReason}
-                    className="rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
+                    className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
                     style={{ backgroundColor: ORANGE }}
                   >
                     Submit Feedback
@@ -398,7 +444,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                   <button
                     type="button"
                     onClick={handleSkipReason}
-                    className="rounded-xl px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                    className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
                   >
                     Skip
                   </button>
@@ -427,23 +473,31 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 22 }}
-              className="flex w-full max-w-md flex-col items-center text-center"
+              className="flex h-full w-full max-w-md flex-col items-center justify-start text-center"
             >
+              {/* Same clamp(...,Nvh,...) approach as the rating screen — this
+                  block (especially with the QR card) must never need the page
+                  to clip or scroll, on anything from a short browser window
+                  to a full kiosk display. justify-start (not center) means any
+                  leftover overflow on a very short screen clips at the bottom
+                  (the least important part), never at the checkmark/heading.
+                  The QR box itself has a protected floor so it never shrinks
+                  past scannable size. */}
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.1 }}
-                className="flex h-16 w-16 items-center justify-center rounded-full"
+                className="flex h-[clamp(1.75rem,5vh,3.5rem)] w-[clamp(1.75rem,5vh,3.5rem)] shrink-0 items-center justify-center rounded-full"
                 style={{ backgroundColor: ORANGE }}
               >
-                <Check className="h-8 w-8 text-white" strokeWidth={2.5} />
+                <Check className="h-[clamp(0.875rem,2.5vh,1.75rem)] w-[clamp(0.875rem,2.5vh,1.75rem)] text-white" strokeWidth={2.5} />
               </motion.div>
 
               <motion.h1
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
-                className="mt-5 text-3xl font-extrabold tracking-tight uppercase sm:text-4xl"
+                className="mt-[clamp(0.25rem,1.2vh,0.75rem)] text-[clamp(1.125rem,4vh,2.25rem)] leading-tight font-extrabold tracking-tight uppercase"
                 style={{ color: NAVY }}
               >
                 Thank You!
@@ -452,7 +506,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.25, duration: 0.4 }}
-                className="mt-2 text-base text-slate-500"
+                className="mt-[clamp(0.125rem,0.8vh,0.5rem)] text-[clamp(0.75rem,1.6vh,0.9375rem)] text-slate-500"
               >
                 Your feedback matters to us.
               </motion.p>
@@ -460,7 +514,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3, duration: 0.4 }}
-                className="mt-1 text-sm text-slate-400"
+                className="text-[clamp(0.65rem,1.2vh,0.8125rem)] text-slate-400"
               >
                 We appreciate you choosing Home Lands.
               </motion.p>
@@ -473,7 +527,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
-                  className="mt-8 flex w-80 flex-col items-center rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_12px_40px_rgb(0,0,0,0.08)]"
+                  className="mt-[clamp(0.25rem,1.2vh,1.25rem)] flex w-full max-w-[20rem] shrink-0 flex-col items-center rounded-[28px] border border-slate-200/80 bg-white p-[clamp(0.375rem,2vh,1.25rem)] shadow-[0_12px_40px_rgb(0,0,0,0.08)]"
                 >
                   <div className="flex items-center justify-center gap-2">
                     <GoogleLogo className="h-5 w-5 shrink-0" />
@@ -485,11 +539,12 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                   {/* unoptimized: the source file is only 132x132 — Next's image
                       optimizer would re-encode this small JPEG again on top of its
                       own lossy compression, softening the module edges further.
-                      imageRendering: pixelated keeps edges crisp on the ~2x upscale
-                      to the display size below instead of letting the browser blur
-                      them smooth. Do not crop, round-clip, or animate/move it — a
-                      camera needs a still, sharp target to scan reliably. */}
-                  <div className="relative mt-4 h-64 w-64 shrink-0 bg-white">
+                      imageRendering: pixelated keeps edges crisp on the upscale to
+                      the display size below instead of letting the browser blur
+                      them smooth. The floor here (8rem/128px) is the smallest this
+                      should ever go and still be reliably scannable — do not crop,
+                      round-clip, or animate/move it. */}
+                  <div className="relative mt-[clamp(0.25rem,1vh,0.75rem)] h-[clamp(8rem,26vh,16rem)] w-[clamp(8rem,26vh,16rem)] shrink-0 bg-white">
                     <Image
                       src="/QR/HomelandQR.jpeg"
                       alt="Scan this QR code to leave a Google review for Home Lands"
@@ -501,34 +556,41 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                     />
                   </div>
 
-                  <p className="mt-4 max-w-[220px] text-center text-[11px] font-bold tracking-widest text-slate-500 uppercase">
+                  <p className="mt-[clamp(0.375rem,1.2vh,0.75rem)] max-w-[220px] text-center text-[clamp(0.6rem,1.1vh,0.6875rem)] font-bold tracking-widest text-slate-500 uppercase">
                     Scan to share your experience on Google
                   </p>
                 </motion.div>
               )}
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.4 }}
-                className="mt-7 flex flex-col items-center gap-2"
-              >
-                <span className="text-2xl font-bold tabular-nums" style={{ color: NAVY }}>
-                  {formatCountdown(secondsLeft)}
-                </span>
-                <div className="h-1 w-44 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-1000 ease-linear"
-                    style={{
-                      width: `${(secondsLeft / thankYouDurationSeconds) * 100}%`,
-                      background: ORANGE,
-                    }}
-                  />
-                </div>
-                <p className="text-[11px] font-semibold tracking-[0.15em] text-slate-400 uppercase">
-                  Returning to rating screen
-                </p>
-              </motion.div>
+              {/* The visible countdown only makes sense when there's a QR to
+                  scan — for the plain (negative-rating) thank-you there's
+                  nothing to wait for, so no counter is shown at all. It still
+                  auto-returns to the rating screen shortly after (see the
+                  secondsLeft/resetToRating effects above), just silently. */}
+              {showGoogleReview && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.4 }}
+                  className="mt-[clamp(0.375rem,1.5vh,1rem)] flex shrink-0 flex-col items-center gap-[clamp(0.1875rem,0.6vh,0.375rem)]"
+                >
+                  <span className="text-[clamp(0.9375rem,2.4vh,1.5rem)] font-bold tabular-nums" style={{ color: NAVY }}>
+                    {formatCountdown(secondsLeft)}
+                  </span>
+                  <div className="h-1 w-36 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-1000 ease-linear"
+                      style={{
+                        width: `${(secondsLeft / thankYouDurationSeconds) * 100}%`,
+                        background: ORANGE,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-semibold tracking-[0.15em] text-slate-400 uppercase">
+                    Returning to rating screen
+                  </span>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
@@ -570,7 +632,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
       </main>
 
       <footer
-        className="relative z-10 py-3.5 text-center text-xs font-semibold tracking-[0.3em] text-white uppercase"
+        className="relative z-10 shrink-0 py-2.5 text-center text-xs font-semibold tracking-[0.3em] text-white uppercase"
         style={{ background: NAVY }}
       >
         Trust <span style={{ color: ORANGE }}>&middot;</span> Innovation{" "}

@@ -23,18 +23,25 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CreateBranchDialog } from "@/components/reference/create-branch-dialog";
 import { CreateDepartmentDialog } from "@/components/reference/create-department-dialog";
+import { CreateFeedbackReasonDialog } from "@/components/reference/create-feedback-reason-dialog";
 import { EditBranchDialog, type BranchRow } from "@/components/reference/edit-branch-dialog";
 import { EditDepartmentDialog, type DepartmentRow } from "@/components/reference/edit-department-dialog";
+import {
+  EditFeedbackReasonDialog,
+  type FeedbackReasonRow,
+} from "@/components/reference/edit-feedback-reason-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 
 type DeleteTarget =
   | { kind: "branch"; id: string; label: string }
-  | { kind: "department"; id: string; label: string };
+  | { kind: "department"; id: string; label: string }
+  | { kind: "feedbackReason"; id: string; label: string };
 
 export function ReferenceManagement() {
   const queryClient = useQueryClient();
   const [editBranch, setEditBranch] = useState<BranchRow | null>(null);
   const [editDepartment, setEditDepartment] = useState<DepartmentRow | null>(null);
+  const [editFeedbackReason, setEditFeedbackReason] = useState<FeedbackReasonRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -57,7 +64,22 @@ export function ReferenceManagement() {
     },
   });
 
+  const feedbackReasonsQuery = useQuery<FeedbackReasonRow[]>({
+    queryKey: ["admin", "feedbackReasons"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/feedback-reasons");
+      if (!res.ok) throw new Error("Failed to load feedback reasons");
+      return res.json();
+    },
+  });
+
   const branchNameById = new Map((branchesQuery.data ?? []).map((b) => [b.id, b.branchName]));
+
+  const DELETE_TARGET_CONFIG = {
+    branch: { url: (id: string) => `/api/admin/branches/${id}`, queryKey: "branches" },
+    department: { url: (id: string) => `/api/admin/departments/${id}`, queryKey: "departments" },
+    feedbackReason: { url: (id: string) => `/api/admin/feedback-reasons/${id}`, queryKey: "feedbackReasons" },
+  } as const;
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -65,11 +87,8 @@ export function ReferenceManagement() {
     setDeleteError(null);
 
     try {
-      const url =
-        deleteTarget.kind === "branch"
-          ? `/api/admin/branches/${deleteTarget.id}`
-          : `/api/admin/departments/${deleteTarget.id}`;
-      const res = await fetch(url, { method: "DELETE" });
+      const config = DELETE_TARGET_CONFIG[deleteTarget.kind];
+      const res = await fetch(config.url(deleteTarget.id), { method: "DELETE" });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -77,9 +96,7 @@ export function ReferenceManagement() {
         return;
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: ["admin", deleteTarget.kind === "branch" ? "branches" : "departments"],
-      });
+      await queryClient.invalidateQueries({ queryKey: ["admin", config.queryKey] });
       setDeleteTarget(null);
     } finally {
       setIsDeleting(false);
@@ -99,6 +116,7 @@ export function ReferenceManagement() {
         <TabsList>
           <TabsTrigger value="branches">Branches</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
+          <TabsTrigger value="feedbackReasons">Feedback Reasons</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branches" className="flex flex-col gap-4">
@@ -262,10 +280,87 @@ export function ReferenceManagement() {
             </Table>
           </div>
         </TabsContent>
+
+        <TabsContent value="feedbackReasons" className="flex flex-col gap-4">
+          <div className="flex justify-end">
+            <CreateFeedbackReasonDialog />
+          </div>
+          <div className="rounded-xl border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Label shown on kiosk</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {feedbackReasonsQuery.isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                      Loading feedback reasons...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {feedbackReasonsQuery.error && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-sm text-destructive">
+                      Unable to load feedback reasons.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {feedbackReasonsQuery.data?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                      No feedback reasons yet. Click &quot;Add Reason&quot; to create one.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {feedbackReasonsQuery.data?.map((reason) => (
+                  <TableRow key={reason.id}>
+                    <TableCell className="font-mono text-sm font-medium">{reason.code}</TableCell>
+                    <TableCell>{reason.label}</TableCell>
+                    <TableCell>
+                      <Badge variant={reason.status === "ACTIVE" ? "default" : "outline"}>
+                        {reason.status === "ACTIVE" ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setEditFeedbackReason(reason)}
+                          aria-label={`Edit feedback reason ${reason.code}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleteTarget({ kind: "feedbackReason", id: reason.id, label: reason.label });
+                          }}
+                          aria-label={`Delete feedback reason ${reason.code}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <EditBranchDialog branch={editBranch} onClose={() => setEditBranch(null)} />
       <EditDepartmentDialog department={editDepartment} onClose={() => setEditDepartment(null)} />
+      <EditFeedbackReasonDialog reason={editFeedbackReason} onClose={() => setEditFeedbackReason(null)} />
 
       <Dialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
@@ -274,13 +369,20 @@ export function ReferenceManagement() {
               <Trash2 className="h-5 w-5" />
             </div>
             <DialogTitle className="mt-3">
-              Delete {deleteTarget?.kind === "branch" ? "Branch" : "Department"}
+              Delete{" "}
+              {deleteTarget?.kind === "branch"
+                ? "Branch"
+                : deleteTarget?.kind === "department"
+                  ? "Department"
+                  : "Feedback Reason"}
             </DialogTitle>
             <DialogDescription>
               Delete <span className="font-medium text-foreground">{deleteTarget?.label}</span>? This
               cannot be undone.
               {deleteTarget?.kind === "branch" && " Any departments or devices still assigned to it must be removed first."}
               {deleteTarget?.kind === "department" && " Any devices still assigned to it must be removed first."}
+              {deleteTarget?.kind === "feedbackReason" &&
+                " Past feedback that used this reason keeps the text as-is."}
             </DialogDescription>
           </DialogHeader>
 

@@ -71,6 +71,18 @@ export const createDepartmentSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
 
+export const createFeedbackReasonSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1)
+    .max(50)
+    .regex(/^[A-Z0-9._-]+$/, "Code may only contain letters, numbers, dots, dashes and underscores."),
+  label: z.string().trim().min(1).max(200),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
 export const createUserSchema = z.object({
   fullName: z.string().trim().min(1).max(200),
   username: usernameSchema,
@@ -102,3 +114,4 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+export type CreateFeedbackReasonInput = z.infer<typeof createFeedbackReasonSchema>;

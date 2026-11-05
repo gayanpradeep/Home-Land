@@ -1,6 +1,7 @@
 import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
 import type { RatingScore } from "@/types/models";
+import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
 
 export interface DashboardFilter {
   from: Date;
@@ -208,4 +209,95 @@ export function getBranchPerformance(filter: DashboardFilter): Promise<EntityPer
 
 export function getDepartmentPerformance(filter: DashboardFilter): Promise<EntityPerformance[]> {
   return aggregateByEntity(filter, "departmentId", COLLECTIONS.DEPARTMENTS);
+}
+
+export interface NegativeFeedbackItem {
+  id: string;
+  ratingScore: RatingScore;
+  emoji: string;
+  ratingLabel: string;
+  branchName: string;
+  departmentName: string;
+  reasonCodes: string[];
+  comment?: string;
+  submittedAt: Date;
+}
+
+// Every Feedback document is written only from the reason step the kiosk
+// shows after a Very Dissatisfied / Dissatisfied selection (see
+// rating-screen.tsx's handleSelectEmoji + the /api/device/ratings route) —
+// so there is no separate "is this negative?" filter to apply here, every
+// row in this collection already is one.
+export async function getNegativeFeedback(
+  filter: DashboardFilter,
+  limitCount = 50,
+): Promise<NegativeFeedbackItem[]> {
+  const db = getDb();
+
+  const snapshot = await db
+    .collection(COLLECTIONS.FEEDBACK)
+    .where("createdAt", ">=", filter.from)
+    .where("createdAt", "<", filter.to)
+    .get();
+
+  const rows = snapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ratingId: data.ratingId as string,
+        branchId: data.branchId as string,
+        departmentId: data.departmentId as string,
+        reasonCodes: (data.reasonCodes as string[] | undefined) ?? [],
+        comment: data.comment as string | undefined,
+        createdAt: tsToDate(data.createdAt) ?? new Date(0),
+      };
+    })
+    .filter(
+      (row) =>
+        (!filter.branchId || row.branchId === filter.branchId) &&
+        (!filter.departmentId || row.departmentId === filter.departmentId),
+    )
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, limitCount);
+
+  if (rows.length === 0) return [];
+
+  const [ratingDocs, branchDocs, departmentDocs] = await Promise.all([
+    Promise.all(rows.map((row) => db.collection(COLLECTIONS.RATINGS).doc(row.ratingId).get())),
+    Promise.all(
+      [...new Set(rows.map((row) => row.branchId))].map((id) => db.collection(COLLECTIONS.BRANCHES).doc(id).get()),
+    ),
+    Promise.all(
+      [...new Set(rows.map((row) => row.departmentId))].map((id) =>
+        db.collection(COLLECTIONS.DEPARTMENTS).doc(id).get(),
+      ),
+    ),
+  ]);
+
+  const ratingScoreById = new Map(ratingDocs.map((doc) => [doc.id, doc.data()?.ratingScore as RatingScore | undefined]));
+  const branchNameById = new Map(
+    branchDocs.map((doc) => [doc.id, (doc.data() as { branchName?: string } | undefined)?.branchName ?? "Unknown"]),
+  );
+  const departmentNameById = new Map(
+    departmentDocs.map((doc) => [
+      doc.id,
+      (doc.data() as { departmentName?: string } | undefined)?.departmentName ?? "Unknown",
+    ]),
+  );
+
+  return rows.map((row) => {
+    const ratingScore = ratingScoreById.get(row.ratingId) ?? 1;
+    return {
+      id: row.id,
+      ratingScore,
+      emoji: RATING_EMOJIS[ratingScore],
+      ratingLabel: RATING_LABELS[ratingScore],
+      branchName: branchNameById.get(row.branchId) ?? "Unknown",
+      departmentName: departmentNameById.get(row.departmentId) ?? "Unknown",
+      reasonCodes: row.reasonCodes,
+      comment: row.comment,
+      submittedAt: row.createdAt,
+    };
+  });
 }
