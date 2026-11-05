@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { Check, Loader2, WifiOff } from "lucide-react";
 import { RATING_EMOJIS, RATING_LABELS, type RatingScore } from "@/types/models";
 import { NEGATIVE_FEEDBACK_REASONS } from "@/lib/constants";
@@ -12,6 +12,33 @@ const SCORES: RatingScore[] = [1, 2, 3, 4, 5];
 const NEGATIVE_THRESHOLD = 2;
 const THANK_YOU_DURATION_MS = 3000;
 const SELECTION_ANIMATION_MS = 450;
+
+// Each idle animation echoes what that face is actually "doing" — the angry
+// face shakes in short bursts, the sad face slowly droops, neutral barely
+// breathes, satisfied bobs happily, and the loved-it face has the biggest,
+// bounciest wiggle — rather than one generic float applied to every emoji.
+const IDLE_EXPRESSION: Record<RatingScore, { animate: TargetAndTransition; transition: Transition }> = {
+  1: {
+    animate: { x: [0, -4, 4, -4, 4, 0], rotate: [0, -3, 3, -3, 0] },
+    transition: { duration: 0.6, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut" },
+  },
+  2: {
+    animate: { rotate: [0, -6, 0], y: [0, 3, 0] },
+    transition: { duration: 2.6, repeat: Infinity, ease: "easeInOut" },
+  },
+  3: {
+    animate: { scale: [1, 1.04, 1] },
+    transition: { duration: 2.8, repeat: Infinity, ease: "easeInOut" },
+  },
+  4: {
+    animate: { y: [0, -8, 0] },
+    transition: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+  },
+  5: {
+    animate: { y: [0, -10, 0], scale: [1, 1.12, 1], rotate: [0, -6, 6, 0] },
+    transition: { duration: 1.6, repeat: Infinity, ease: "easeInOut" },
+  },
+};
 
 // Sampled from the Home Lands brand mark (public/home-lands-icon.png) so the
 // kiosk matches the site's navy + orange identity exactly, not an approximation.
@@ -200,8 +227,8 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                       type="button"
                       disabled={selectedScore !== null}
                       onClick={() => handleSelectEmoji(score)}
-                      whileHover={selectedScore === null ? { scale: 1.04, y: -4 } : undefined}
-                      whileTap={selectedScore === null ? { scale: 0.96 } : undefined}
+                      whileHover={selectedScore === null ? { scale: 1.06, y: -6 } : undefined}
+                      whileTap={selectedScore === null ? { scale: 0.94 } : undefined}
                       animate={{
                         scale: isSelected ? 1.12 : 1,
                         opacity: isDimmed ? 0.35 : 1,
@@ -217,7 +244,25 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                           : undefined
                       }
                     >
-                      <span className="text-5xl sm:text-6xl">{RATING_EMOJIS[score]}</span>
+                      <motion.span
+                        className="text-5xl sm:text-6xl"
+                        animate={
+                          isSelected
+                            ? { scale: [1, 1.4, 1.1], rotate: [0, -10, 10, 0], x: 0, y: 0 }
+                            : isDimmed
+                              ? { scale: 1, x: 0, y: 0, rotate: 0 }
+                              : IDLE_EXPRESSION[score].animate
+                        }
+                        transition={
+                          isSelected
+                            ? { duration: 0.5, ease: "easeOut" }
+                            : isDimmed
+                              ? { duration: 0.2 }
+                              : IDLE_EXPRESSION[score].transition
+                        }
+                      >
+                        {RATING_EMOJIS[score]}
+                      </motion.span>
                       <span
                         className="text-xs font-bold tracking-wide uppercase sm:text-sm"
                         style={{ color: isSelected ? ORANGE : NAVY }}
