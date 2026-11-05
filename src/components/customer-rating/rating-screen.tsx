@@ -13,7 +13,7 @@ const NEGATIVE_THRESHOLD = 2;
 // Google Review is only offered for Neutral, Satisfied and Very Satisfied
 // (score > NEGATIVE_THRESHOLD) — a dissatisfied customer still sees a plain
 // thank-you, no QR, and a much shorter hold since there's nothing to scan.
-const GOOGLE_REVIEW_DURATION_SECONDS = 60;
+const GOOGLE_REVIEW_DURATION_SECONDS = 10;
 const PLAIN_THANKYOU_DURATION_SECONDS = 8;
 const SELECTION_ANIMATION_MS = 450;
 
