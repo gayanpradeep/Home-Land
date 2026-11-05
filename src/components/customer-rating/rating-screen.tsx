@@ -482,20 +482,22 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                     </span>
                   </div>
 
-                  {/* unoptimized: this QR is a dense, high-module-count code — Next's
-                      image optimizer re-encodes/compresses it, which blurs adjacent
-                      modules together and makes it unscannable. Serving the original
-                      PNG pixels untouched keeps every module crisp. Do not crop,
-                      round-clip, shrink below ~280px, or animate/move it — a camera
-                      needs a still, full-resolution target to read a code this dense. */}
-                  <div className="relative mt-4 h-72 w-72 shrink-0 bg-white">
+                  {/* unoptimized: the source file is only 132x132 — Next's image
+                      optimizer would re-encode this small JPEG again on top of its
+                      own lossy compression, softening the module edges further.
+                      imageRendering: pixelated keeps edges crisp on the ~2x upscale
+                      to the display size below instead of letting the browser blur
+                      them smooth. Do not crop, round-clip, or animate/move it — a
+                      camera needs a still, sharp target to scan reliably. */}
+                  <div className="relative mt-4 h-64 w-64 shrink-0 bg-white">
                     <Image
-                      src="/QR/googleQR.png"
+                      src="/QR/HomelandQR.jpeg"
                       alt="Scan this QR code to leave a Google review for Home Lands"
                       fill
                       unoptimized
-                      sizes="288px"
+                      sizes="256px"
                       className="object-contain"
+                      style={{ imageRendering: "pixelated" }}
                     />
                   </div>
 
