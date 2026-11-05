@@ -114,7 +114,7 @@ export function CreateFeedbackReasonDialog() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="label" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
               <MessageSquareWarning className="h-3.5 w-3.5" style={{ color: NAVY }} />
-              Label shown on kiosk
+              Label shown
             </Label>
             <Input
               id="label"

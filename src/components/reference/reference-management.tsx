@@ -290,7 +290,7 @@ export function ReferenceManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Code</TableHead>
-                  <TableHead>Label shown on kiosk</TableHead>
+                  <TableHead>Label shown</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
