@@ -217,7 +217,7 @@ export function CreateDeviceDialog() {
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="deviceCode" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                     <KeyRound className="h-3.5 w-3.5" style={{ color: ORANGE }} />

@@ -84,7 +84,7 @@ export function DeviceManagement() {
   const activeCount = data?.filter((d) => d.status === "ACTIVE").length ?? 0;
 
   return (
-    <div className="flex flex-col gap-6 p-6 sm:p-8">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div
