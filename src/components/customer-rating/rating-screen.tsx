@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { Check, Loader2, WifiOff } from "lucide-react";
@@ -10,8 +10,43 @@ import { cn } from "@/lib/utils";
 
 const SCORES: RatingScore[] = [1, 2, 3, 4, 5];
 const NEGATIVE_THRESHOLD = 2;
-const THANK_YOU_DURATION_MS = 3000;
+// Google Review is only offered for Neutral, Satisfied and Very Satisfied
+// (score > NEGATIVE_THRESHOLD) — a dissatisfied customer still sees a plain
+// thank-you, no QR, and a much shorter hold since there's nothing to scan.
+const GOOGLE_REVIEW_DURATION_SECONDS = 60;
+const PLAIN_THANKYOU_DURATION_SECONDS = 8;
 const SELECTION_ANIMATION_MS = 450;
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// The official four-color Google "G" mark, inlined so the review prompt reads
+// as unmistakably "Google" without pulling in an external logo asset.
+function GoogleLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
+      <path
+        fill="#FFC107"
+        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12 c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24 c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039 l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36 c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571 c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+    </svg>
+  );
+}
 
 // Each idle animation echoes what that face is actually "doing" — the angry
 // face shakes in short bursts, the sad face slowly droops, neutral barely
@@ -61,14 +96,29 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
   // Generated once per flow and reused on every retry so a network retry can
   // never create a duplicate rating (the API enforces this too, idempotently).
   const [submissionReference, setSubmissionReference] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(PLAIN_THANKYOU_DURATION_SECONDS);
 
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showGoogleReview = selectedScore !== null && selectedScore > NEGATIVE_THRESHOLD;
+  const thankYouDurationSeconds = showGoogleReview
+    ? GOOGLE_REVIEW_DURATION_SECONDS
+    : PLAIN_THANKYOU_DURATION_SECONDS;
+
+  // Each kiosk runs this component as its own independent instance (own tab,
+  // own state) — this interval only ever touches this device's local state,
+  // so one device's countdown/reset can never affect another's.
+  useEffect(() => {
+    if (step !== "thankyou") return;
+    const interval = setInterval(() => {
+      setSecondsLeft((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   useEffect(() => {
-    return () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    };
-  }, []);
+    if (step === "thankyou" && secondsLeft === 0) {
+      resetToRating();
+    }
+  }, [step, secondsLeft]);
 
   function resetToRating() {
     setStep("rating");
@@ -97,8 +147,8 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
         return;
       }
 
+      setSecondsLeft(score > NEGATIVE_THRESHOLD ? GOOGLE_REVIEW_DURATION_SECONDS : PLAIN_THANKYOU_DURATION_SECONDS);
       setStep("thankyou");
-      resetTimerRef.current = setTimeout(resetToRating, THANK_YOU_DURATION_MS);
     } catch {
       setStep("error");
     }
@@ -153,6 +203,18 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
           style={{ background: ORANGE }}
         />
       </div>
+
+      {/* Ambient background video, only while the Google Review screen is up —
+          muted, looped (the clip is ~10s, the screen holds for 60s) and kept
+          low-opacity so it reads as motion in the background, never competing
+          with the QR code or text sitting above it. */}
+      {step === "thankyou" && showGoogleReview && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <video autoPlay muted loop playsInline className="h-full w-full object-cover opacity-[0.1]">
+            <source src="/video/googleQR.webm" type="video/webm" />
+          </video>
+        </div>
+      )}
 
       <header className="relative z-10 flex items-center justify-between border-b border-black/5 bg-white/80 px-6 py-4 backdrop-blur-sm sm:px-10">
         <Image
@@ -361,32 +423,110 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
           {step === "thankyou" && (
             <motion.div
               key="thankyou"
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 18 }}
-              className="flex flex-col items-center text-center"
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="flex w-full max-w-md flex-col items-center text-center"
             >
-              {selectedScore && <span className="text-6xl">{RATING_EMOJIS[selectedScore]}</span>}
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.1 }}
-                className="mt-5 flex h-16 w-16 items-center justify-center rounded-full"
+                className="flex h-16 w-16 items-center justify-center rounded-full"
                 style={{ backgroundColor: ORANGE }}
               >
                 <Check className="h-8 w-8 text-white" strokeWidth={2.5} />
               </motion.div>
-              <h1
-                className="mt-6 text-3xl font-extrabold tracking-tight uppercase sm:text-4xl"
+
+              <motion.h1
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.4 }}
+                className="mt-5 text-3xl font-extrabold tracking-tight uppercase sm:text-4xl"
                 style={{ color: NAVY }}
               >
                 Thank You!
-              </h1>
-              <p className="mt-2 text-base text-slate-500">Your opinion matters to us.</p>
-              <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase">
-                Trust &middot; Innovation &middot; Excellence
-              </p>
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.4 }}
+                className="mt-2 text-base text-slate-500"
+              >
+                Your feedback matters to us.
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="mt-1 text-sm text-slate-400"
+              >
+                We appreciate you choosing Home Lands.
+              </motion.p>
+
+              {/* Google Review is only offered for Neutral / Satisfied / Very
+                  Satisfied (score > NEGATIVE_THRESHOLD) — a dissatisfied
+                  customer sees the plain thank-you above with no QR prompt. */}
+              {showGoogleReview && (
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
+                  className="mt-8 flex w-80 flex-col items-center rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_12px_40px_rgb(0,0,0,0.08)]"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <GoogleLogo className="h-5 w-5 shrink-0" />
+                    <span className="text-xs font-bold tracking-wide text-slate-600 uppercase">
+                      Google Review
+                    </span>
+                  </div>
+
+                  {/* unoptimized: this QR is a dense, high-module-count code — Next's
+                      image optimizer re-encodes/compresses it, which blurs adjacent
+                      modules together and makes it unscannable. Serving the original
+                      PNG pixels untouched keeps every module crisp. Do not crop,
+                      round-clip, shrink below ~280px, or animate/move it — a camera
+                      needs a still, full-resolution target to read a code this dense. */}
+                  <div className="relative mt-4 h-72 w-72 shrink-0 bg-white">
+                    <Image
+                      src="/QR/googleQR.png"
+                      alt="Scan this QR code to leave a Google review for Home Lands"
+                      fill
+                      unoptimized
+                      sizes="288px"
+                      className="object-contain"
+                    />
+                  </div>
+
+                  <p className="mt-4 max-w-[220px] text-center text-[11px] font-bold tracking-widest text-slate-500 uppercase">
+                    Scan to share your experience on Google
+                  </p>
+                </motion.div>
+              )}
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="mt-7 flex flex-col items-center gap-2"
+              >
+                <span className="text-2xl font-bold tabular-nums" style={{ color: NAVY }}>
+                  {formatCountdown(secondsLeft)}
+                </span>
+                <div className="h-1 w-44 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-1000 ease-linear"
+                    style={{
+                      width: `${(secondsLeft / thankYouDurationSeconds) * 100}%`,
+                      background: ORANGE,
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] font-semibold tracking-[0.15em] text-slate-400 uppercase">
+                  Returning to rating screen
+                </p>
+              </motion.div>
             </motion.div>
           )}
 
