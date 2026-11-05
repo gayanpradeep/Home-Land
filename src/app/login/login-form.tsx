@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, User, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
   const router = useRouter();
@@ -45,11 +48,14 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
   }
 
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+              <User className="h-3.5 w-3.5" style={{ color: NAVY }} />
+              Username
+            </Label>
             <Input
               id="username"
               type="text"
@@ -60,7 +66,10 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+              <Lock className="h-3.5 w-3.5" style={{ color: ORANGE }} />
+              Password
+            </Label>
             <div className="relative">
               <Input
                 id="password"
@@ -81,8 +90,17 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
               </button>
             </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={isSubmitting} className="mt-2">
+          {error && (
+            <p className="border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="mt-2 text-white shadow-sm"
+            style={{ backgroundColor: NAVY }}
+          >
             {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>

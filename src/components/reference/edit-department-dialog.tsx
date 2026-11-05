@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -19,6 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Pencil, Building2, Hash, Users2 } from "lucide-react";
+
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 export interface DepartmentRow {
   id: string;
@@ -91,9 +96,12 @@ function EditDepartmentForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label>Branch</Label>
+        <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <Building2 className="h-3.5 w-3.5" style={{ color: NAVY }} />
+          Branch
+        </Label>
         <Select value={form.branchId} onValueChange={(v) => setForm((f) => ({ ...f, branchId: v ?? "" }))}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full rounded-xl">
             <SelectValue>
               {branches?.find((b) => b.id === form.branchId)?.branchName ?? "Select a branch"}
             </SelectValue>
@@ -109,30 +117,40 @@ function EditDepartmentForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-departmentCode">Department Code</Label>
+        <Label htmlFor="edit-departmentCode" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <Hash className="h-3.5 w-3.5" style={{ color: ORANGE }} />
+          Department Code
+        </Label>
         <Input
           id="edit-departmentCode"
           required
+          className="rounded-xl"
           value={form.departmentCode}
           onChange={(e) => setForm((f) => ({ ...f, departmentCode: e.target.value }))}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-departmentName">Department Name</Label>
+        <Label htmlFor="edit-departmentName" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <Users2 className="h-3.5 w-3.5" style={{ color: NAVY }} />
+          Department Name
+        </Label>
         <Input
           id="edit-departmentName"
           required
+          className="rounded-xl"
           value={form.departmentName}
           onChange={(e) => setForm((f) => ({ ...f, departmentName: e.target.value }))}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-department-status">Status</Label>
+        <Label htmlFor="edit-department-status" className="text-xs font-semibold text-slate-600">
+          Status
+        </Label>
         <select
           id="edit-department-status"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
+          className="h-9 rounded-xl border border-input bg-transparent px-3 text-sm"
           value={form.status}
           onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "ACTIVE" | "INACTIVE" }))}
         >
@@ -141,13 +159,22 @@ function EditDepartmentForm({
         </select>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" className="rounded-xl" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-xl text-white shadow-sm"
+          style={{ backgroundColor: NAVY }}
+        >
           {isSubmitting ? "Saving..." : "Save Changes"}
         </Button>
       </DialogFooter>
@@ -164,9 +191,16 @@ export function EditDepartmentDialog({
 }) {
   return (
     <Dialog open={department !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Department</DialogTitle>
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-xl"
+            style={{ backgroundColor: `${ORANGE}1a`, color: ORANGE }}
+          >
+            <Pencil className="h-5 w-5" />
+          </div>
+          <DialogTitle className="mt-3">Edit Department</DialogTitle>
+          <DialogDescription>Update this department&apos;s details.</DialogDescription>
         </DialogHeader>
         {department && <EditDepartmentForm key={department.id} department={department} onClose={onClose} />}
       </DialogContent>

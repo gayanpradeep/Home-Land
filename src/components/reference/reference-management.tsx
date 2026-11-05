@@ -268,9 +268,14 @@ export function ReferenceManagement() {
       <EditDepartmentDialog department={editDepartment} onClose={() => setEditDepartment(null)} />
 
       <Dialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete {deleteTarget?.kind === "branch" ? "Branch" : "Department"}</DialogTitle>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <DialogTitle className="mt-3">
+              Delete {deleteTarget?.kind === "branch" ? "Branch" : "Department"}
+            </DialogTitle>
             <DialogDescription>
               Delete <span className="font-medium text-foreground">{deleteTarget?.label}</span>? This
               cannot be undone.
@@ -279,13 +284,17 @@ export function ReferenceManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          {deleteError && (
+            <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+              {deleteError}
+            </p>
+          )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button type="button" variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+            <Button type="button" variant="destructive" className="rounded-xl" onClick={confirmDelete} disabled={isDeleting}>
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>

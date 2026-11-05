@@ -137,3 +137,10 @@
 .admin-shell {
   --radius: 0px;
 }
+
+/* Login screen also uses sharp rectangular corners, same technique as the
+   admin panel above — this page has no portaled content, so the wrapper
+   class alone is enough. */
+.login-shell {
+  --radius: 0px;
+}

@@ -11,7 +11,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { Pencil, Hash, Building2, MapPin } from "lucide-react";
+
+const NAVY = "#1b2a56";
+const ORANGE = "#f47321";
 
 export interface BranchRow {
   id: string;
@@ -62,41 +67,57 @@ function EditBranchForm({ branch, onClose }: { branch: BranchRow; onClose: () =>
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-branchCode">Branch Code</Label>
-        <Input
-          id="edit-branchCode"
-          required
-          value={form.branchCode}
-          onChange={(e) => setForm((f) => ({ ...f, branchCode: e.target.value }))}
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="edit-branchCode" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <Hash className="h-3.5 w-3.5" style={{ color: ORANGE }} />
+            Branch Code
+          </Label>
+          <Input
+            id="edit-branchCode"
+            required
+            className="rounded-xl"
+            value={form.branchCode}
+            onChange={(e) => setForm((f) => ({ ...f, branchCode: e.target.value }))}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="edit-branchName" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <Building2 className="h-3.5 w-3.5" style={{ color: NAVY }} />
+            Branch Name
+          </Label>
+          <Input
+            id="edit-branchName"
+            required
+            className="rounded-xl"
+            value={form.branchName}
+            onChange={(e) => setForm((f) => ({ ...f, branchName: e.target.value }))}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-branchName">Branch Name</Label>
-        <Input
-          id="edit-branchName"
-          required
-          value={form.branchName}
-          onChange={(e) => setForm((f) => ({ ...f, branchName: e.target.value }))}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-address">Address</Label>
+        <Label htmlFor="edit-address" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <MapPin className="h-3.5 w-3.5" style={{ color: NAVY }} />
+          Address
+        </Label>
         <Input
           id="edit-address"
           required
+          className="rounded-xl"
           value={form.address}
           onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="edit-branch-status">Status</Label>
+        <Label htmlFor="edit-branch-status" className="text-xs font-semibold text-slate-600">
+          Status
+        </Label>
         <select
           id="edit-branch-status"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
+          className="h-9 rounded-xl border border-input bg-transparent px-3 text-sm"
           value={form.status}
           onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "ACTIVE" | "INACTIVE" }))}
         >
@@ -105,13 +126,22 @@ function EditBranchForm({ branch, onClose }: { branch: BranchRow; onClose: () =>
         </select>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" className="rounded-xl" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-xl text-white shadow-sm"
+          style={{ backgroundColor: NAVY }}
+        >
           {isSubmitting ? "Saving..." : "Save Changes"}
         </Button>
       </DialogFooter>
@@ -128,9 +158,16 @@ export function EditBranchDialog({
 }) {
   return (
     <Dialog open={branch !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Branch</DialogTitle>
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-xl"
+            style={{ backgroundColor: `${NAVY}0f`, color: NAVY }}
+          >
+            <Pencil className="h-5 w-5" />
+          </div>
+          <DialogTitle className="mt-3">Edit Branch</DialogTitle>
+          <DialogDescription>Update this branch&apos;s details.</DialogDescription>
         </DialogHeader>
         {branch && <EditBranchForm key={branch.id} branch={branch} onClose={onClose} />}
       </DialogContent>
