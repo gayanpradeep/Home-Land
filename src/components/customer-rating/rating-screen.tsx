@@ -488,61 +488,80 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
+              className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:max-w-3xl"
             >
               <div className="h-1.5 w-full shrink-0" style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }} />
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-center">
-                <h2 className="text-lg font-bold" style={{ color: NAVY }}>
-                  Dear Madam/Sir, We Apologize
-                </h2>
-                <p className="mt-1.5 text-sm text-slate-500">
-                  Please share your contact number so our Customer Relations Manager/Director can reach out to
-                  you directly, right away.
-                </p>
-
-                <div className="mt-4 flex flex-col gap-2.5 text-left">
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5">
-                    <User className="h-4 w-4 shrink-0 text-slate-400" />
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value.replace(/[^A-Za-z\s.'-]/g, ""))}
-                      placeholder="Your name"
-                      className="w-full text-sm outline-none"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5">
-                    <Phone className="h-4 w-4 shrink-0 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={customerContactNumber}
-                      onChange={(e) => setCustomerContactNumber(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="Mobile number"
-                      className="w-full text-sm outline-none"
-                    />
-                  </label>
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:flex-row sm:overflow-hidden">
+                <div
+                  className="flex shrink-0 flex-col items-center justify-center gap-[clamp(0.375rem,1.2vh,0.625rem)] px-[clamp(1.25rem,4vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)] text-center sm:w-[42%] sm:overflow-y-auto sm:border-r sm:border-slate-100"
+                  style={{ backgroundColor: `${NAVY}06` }}
+                >
+                  <Image
+                    src="/home-lands-logo-tagline.png"
+                    alt="Home Lands"
+                    width={320}
+                    height={110}
+                    className="h-20 w-auto shrink-0 sm:h-24"
+                  />
+                  <h2 className="text-[clamp(0.9375rem,2.6vh,1.125rem)] font-bold" style={{ color: NAVY }}>
+                    We Sincerely Apologize for the Inconvenience
+                  </h2>
+                  <p className="text-[clamp(0.6875rem,1.5vh,0.8125rem)] text-slate-500">
+                    Your satisfaction is our utmost priority, and we sincerely regret any inconvenience you may have
+                    experienced.
+                  </p>
+                  <p className="text-[clamp(0.6875rem,1.5vh,0.8125rem)] text-slate-500">
+                    Kindly provide your contact number so that our Customer Relations Manager or Director can
+                    personally reach out to you at the earliest opportunity.
+                  </p>
+                  <p className="text-[clamp(0.6875rem,1.5vh,0.8125rem)] text-slate-500">
+                    Thank you for your patience and understanding.
+                  </p>
                 </div>
-              </div>
 
-              <div className="shrink-0 px-6 pb-5">
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSubmitContact}
-                    disabled={!customerName.trim() || !customerContactNumber.trim()}
-                    className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98] disabled:opacity-40"
-                    style={{ backgroundColor: ORANGE }}
-                  >
-                    Submit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSkipContact}
-                    className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
-                  >
-                    Skip
-                  </button>
+                <div className="flex min-h-0 flex-1 flex-col justify-center gap-[clamp(0.625rem,2vh,1rem)] px-[clamp(1.25rem,4vw,2rem)] py-[clamp(0.75rem,2vh,1.25rem)] sm:overflow-y-auto">
+                  <div className="flex flex-col gap-[clamp(0.375rem,1.2vh,0.625rem)] text-left">
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-[clamp(0.375rem,1.2vh,0.625rem)]">
+                      <User className="h-4 w-4 shrink-0 text-slate-400" />
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value.replace(/[^A-Za-z\s.'-]/g, ""))}
+                        placeholder="Your name"
+                        className="w-full text-sm outline-none"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-[clamp(0.375rem,1.2vh,0.625rem)]">
+                      <Phone className="h-4 w-4 shrink-0 text-slate-400" />
+                      <input
+                        type="tel"
+                        value={customerContactNumber}
+                        onChange={(e) => setCustomerContactNumber(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="Mobile number"
+                        className="w-full text-sm outline-none"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSubmitContact}
+                      disabled={!customerName.trim() || !customerContactNumber.trim()}
+                      className="rounded-xl px-4 py-[clamp(0.5rem,1.4vh,0.625rem)] text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98] disabled:opacity-40"
+                      style={{ backgroundColor: ORANGE }}
+                    >
+                      Submit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSkipContact}
+                      className="rounded-xl px-4 py-[clamp(0.5rem,1.4vh,0.625rem)] text-sm font-medium text-slate-500 hover:bg-slate-50"
+                    >
+                      Skip
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
