@@ -1,6 +1,6 @@
 import { getDb, tsToDate, stripUndefined } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
-import type { Feedback, Rating, RatingScore } from "@/types/models";
+import type { BadReviewStatus, Feedback, Rating, RatingScore } from "@/types/models";
 import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
 
 interface InsertRatingArgs {
@@ -67,6 +67,8 @@ interface InsertFeedbackArgs {
   departmentId: string;
   reasonCodes: string[];
   comment?: string;
+  customerName?: string;
+  customerContactNumber?: string;
 }
 
 export async function insertFeedback(args: InsertFeedbackArgs): Promise<void> {
@@ -78,8 +80,16 @@ export async function insertFeedback(args: InsertFeedbackArgs): Promise<void> {
     departmentId: args.departmentId,
     reasonCodes: args.reasonCodes,
     comment: args.comment,
+    customerName: args.customerName,
+    customerContactNumber: args.customerContactNumber,
+    status: "PENDING",
     createdAt: new Date(),
   };
 
   await db.collection(COLLECTIONS.FEEDBACK).add(stripUndefined(doc));
+}
+
+export async function updateFeedbackStatus(id: string, status: BadReviewStatus): Promise<void> {
+  const db = getDb();
+  await db.collection(COLLECTIONS.FEEDBACK).doc(id).update({ status });
 }

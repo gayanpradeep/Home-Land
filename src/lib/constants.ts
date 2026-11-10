@@ -21,6 +21,14 @@ export const DEFAULT_DEPARTMENTS = [
   "Administration",
 ] as const;
 
+export const BAD_REVIEW_STATUSES = ["PENDING", "IN_PROGRESS", "CLOSED"] as const;
+
+export const BAD_REVIEW_STATUS_LABELS: Record<(typeof BAD_REVIEW_STATUSES)[number], string> = {
+  PENDING: "Pending",
+  IN_PROGRESS: "Take Action",
+  CLOSED: "Close",
+};
+
 export const NEGATIVE_FEEDBACK_REASONS = [
   { code: "SLOW_SERVICE", label: "Service was too slow" },
   { code: "STAFF_ATTITUDE", label: "Staff attitude" },

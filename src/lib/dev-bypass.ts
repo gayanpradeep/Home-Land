@@ -170,6 +170,9 @@ const MOCK_NEGATIVE_FEEDBACK = [
     departmentName: "Customer Service",
     reasonCodes: ["LONG_WAIT", "STAFF_ATTITUDE"],
     comment: "Waited almost an hour and the staff member was dismissive when I asked for an update.",
+    customerName: "S. Perera",
+    customerContactNumber: "0771234567",
+    status: "PENDING" as const,
     submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
   },
   {
@@ -181,6 +184,9 @@ const MOCK_NEGATIVE_FEEDBACK = [
     departmentName: "Finance",
     reasonCodes: ["UNRESOLVED_ISSUE"],
     comment: undefined,
+    customerName: undefined,
+    customerContactNumber: undefined,
+    status: "IN_PROGRESS" as const,
     submittedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
   },
   {
@@ -192,6 +198,9 @@ const MOCK_NEGATIVE_FEEDBACK = [
     departmentName: "Sales",
     reasonCodes: ["SLOW_SERVICE"],
     comment: "The queue management system was down for most of the visit.",
+    customerName: "N. Fernando",
+    customerContactNumber: "0719876543",
+    status: "CLOSED" as const,
     submittedAt: new Date(Date.now() - 26 * 60 * 60 * 1000),
   },
 ];

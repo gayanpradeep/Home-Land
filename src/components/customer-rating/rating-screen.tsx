@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
-import { Check, Loader2, WifiOff } from "lucide-react";
+import { Check, Loader2, Phone, User, WifiOff } from "lucide-react";
 import { RATING_EMOJIS, RATING_LABELS, type RatingScore } from "@/types/models";
 import { NEGATIVE_FEEDBACK_REASONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -89,7 +89,7 @@ const IDLE_EXPRESSION: Record<RatingScore, { animate: TargetAndTransition; trans
 const NAVY = "#1b2a56";
 const ORANGE = "#f47321";
 
-type Step = "rating" | "reason" | "submitting" | "thankyou" | "error";
+type Step = "rating" | "reason" | "contact" | "submitting" | "thankyou" | "error";
 
 interface RatingScreenProps {
   branchName: string;
@@ -102,6 +102,8 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
   const [selectedScore, setSelectedScore] = useState<RatingScore | null>(null);
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerContactNumber, setCustomerContactNumber] = useState("");
   // Generated once per flow and reused on every retry so a network retry can
   // never create a duplicate rating (the API enforces this too, idempotently).
   const [submissionReference, setSubmissionReference] = useState<string | null>(null);
@@ -163,10 +165,19 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
     setSelectedScore(null);
     setSelectedReasons([]);
     setComment("");
+    setCustomerName("");
+    setCustomerContactNumber("");
     setSubmissionReference(null);
   }
 
-  async function submitRating(score: RatingScore, reference: string, reasonCodes?: string[], finalComment?: string) {
+  async function submitRating(
+    score: RatingScore,
+    reference: string,
+    reasonCodes?: string[],
+    finalComment?: string,
+    finalCustomerName?: string,
+    finalCustomerContactNumber?: string,
+  ) {
     setStep("submitting");
     try {
       const res = await fetch("/api/device/ratings", {
@@ -177,6 +188,10 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
           submissionReference: reference,
           reasonCodes: reasonCodes && reasonCodes.length > 0 ? reasonCodes : undefined,
           comment: finalComment ? finalComment.trim() || undefined : undefined,
+          customerName: finalCustomerName ? finalCustomerName.trim() || undefined : undefined,
+          customerContactNumber: finalCustomerContactNumber
+            ? finalCustomerContactNumber.trim() || undefined
+            : undefined,
         }),
       });
 
@@ -213,19 +228,32 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
     );
   }
 
+  // Both Submit and Skip on the reason step lead to the apology/contact modal
+  // next — only Skip clears out any in-progress reason selection first, since
+  // the customer chose not to give one.
   function handleSubmitReason() {
-    if (!selectedScore || !submissionReference) return;
-    void submitRating(selectedScore, submissionReference, selectedReasons, comment);
+    setStep("contact");
   }
 
   function handleSkipReason() {
+    setSelectedReasons([]);
+    setComment("");
+    setStep("contact");
+  }
+
+  function handleSubmitContact() {
     if (!selectedScore || !submissionReference) return;
-    void submitRating(selectedScore, submissionReference);
+    void submitRating(selectedScore, submissionReference, selectedReasons, comment, customerName, customerContactNumber);
+  }
+
+  function handleSkipContact() {
+    if (!selectedScore || !submissionReference) return;
+    void submitRating(selectedScore, submissionReference, selectedReasons, comment);
   }
 
   function handleRetry() {
     if (!selectedScore || !submissionReference) return;
-    void submitRating(selectedScore, submissionReference, selectedReasons, comment);
+    void submitRating(selectedScore, submissionReference, selectedReasons, comment, customerName, customerContactNumber);
   }
 
   return (
@@ -444,6 +472,73 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
                   <button
                     type="button"
                     onClick={handleSkipReason}
+                    className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {step === "contact" && selectedScore !== null && (
+            <motion.div
+              key="contact"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
+            >
+              <div className="h-1.5 w-full shrink-0" style={{ background: `linear-gradient(90deg, ${NAVY}, ${ORANGE})` }} />
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-center">
+                <h2 className="text-lg font-bold" style={{ color: NAVY }}>
+                  Dear Madam/Sir, We Apologize
+                </h2>
+                <p className="mt-1.5 text-sm text-slate-500">
+                  Please share your contact number so our Customer Relations Manager/Director can reach out to
+                  you directly, right away.
+                </p>
+
+                <div className="mt-4 flex flex-col gap-2.5 text-left">
+                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5">
+                    <User className="h-4 w-4 shrink-0 text-slate-400" />
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value.replace(/[^A-Za-z\s.'-]/g, ""))}
+                      placeholder="Your name"
+                      className="w-full text-sm outline-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5">
+                    <Phone className="h-4 w-4 shrink-0 text-slate-400" />
+                    <input
+                      type="tel"
+                      value={customerContactNumber}
+                      onChange={(e) => setCustomerContactNumber(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="Mobile number"
+                      className="w-full text-sm outline-none"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shrink-0 px-6 pb-5">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSubmitContact}
+                    disabled={!customerName.trim() || !customerContactNumber.trim()}
+                    className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98] disabled:opacity-40"
+                    style={{ backgroundColor: ORANGE }}
+                  >
+                    Submit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipContact}
                     className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
                   >
                     Skip

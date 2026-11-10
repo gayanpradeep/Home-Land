@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { ratingScore, submissionReference, reasonCodes, comment } = ratingSubmissionSchema.parse(body);
+    const { ratingScore, submissionReference, reasonCodes, comment, customerName, customerContactNumber } =
+      ratingSubmissionSchema.parse(body);
 
     const { rating, isDuplicate } = await insertRating({
       branchId: device.branchId,
@@ -45,13 +46,19 @@ export async function POST(request: Request) {
       submissionReference,
     });
 
-    if (!isDuplicate && rating.id && ((reasonCodes && reasonCodes.length > 0) || comment)) {
+    // Every Very Dissatisfied / Dissatisfied rating is a bad review that
+    // should be trackable in the admin dashboard, even if the customer chose
+    // not to pick a reason or leave contact details — not just the ones with
+    // a reason/comment attached.
+    if (!isDuplicate && rating.id && ratingScore <= 2) {
       await insertFeedback({
         ratingId: rating.id,
         branchId: device.branchId,
         departmentId: device.departmentId,
         reasonCodes: reasonCodes ?? [],
         comment,
+        customerName,
+        customerContactNumber,
       });
     }
 

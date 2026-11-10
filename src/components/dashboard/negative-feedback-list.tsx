@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { MessageSquareWarning, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MessageSquareWarning, Inbox, ChevronLeft, ChevronRight, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NEGATIVE_FEEDBACK_REASONS } from "@/lib/constants";
+import { NEGATIVE_FEEDBACK_REASONS, BAD_REVIEW_STATUSES, BAD_REVIEW_STATUS_LABELS } from "@/lib/constants";
+import type { BadReviewStatus } from "@/types/models";
 import type { NegativeFeedbackItem } from "@/services/dashboard.service";
 
 const PAGE_SIZE = 5;
+
+const STATUS_BADGE_CLASS: Record<BadReviewStatus, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  CLOSED: "bg-emerald-100 text-emerald-700",
+};
 
 const STATIC_REASON_LABEL_BY_CODE = new Map<string, string>(
   NEGATIVE_FEEDBACK_REASONS.map((r) => [r.code, r.label]),
@@ -37,6 +44,30 @@ interface NegativeFeedbackListProps {
 
 export function NegativeFeedbackList({ items, isLoading }: NegativeFeedbackListProps) {
   const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
+  // Updating a status is rare and the list already refetches on its own
+  // interval, so a quick local override (keyed by feedback id) is enough to
+  // make the change feel instant without needing optimistic cache surgery.
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, BadReviewStatus>>({});
+
+  async function handleStatusChange(id: string, status: BadReviewStatus) {
+    setStatusOverrides((prev) => ({ ...prev, [id]: status }));
+    try {
+      const res = await fetch(`/api/admin/feedback/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      void queryClient.invalidateQueries({ queryKey: ["dashboard", "feedback"] });
+    } catch {
+      setStatusOverrides((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }
 
   // Live admin-managed labels (Reference > Feedback Reasons) take priority so
   // a renamed/edited reason shows its current label here, not the built-in
@@ -100,6 +131,23 @@ export function NegativeFeedbackList({ items, isLoading }: NegativeFeedbackListP
               {item.branchName} <span className="text-slate-300">&bull;</span> {item.departmentName}
             </p>
 
+            {(item.customerName || item.customerContactNumber) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                {item.customerName && (
+                  <span className="inline-flex items-center gap-1">
+                    <User className="h-3 w-3 text-slate-400" />
+                    {item.customerName}
+                  </span>
+                )}
+                {item.customerContactNumber && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="h-3 w-3 text-slate-400" />
+                    {item.customerContactNumber}
+                  </span>
+                )}
+              </div>
+            )}
+
             {item.reasonCodes.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {item.reasonCodes.map((code) => (
@@ -116,6 +164,32 @@ export function NegativeFeedbackList({ items, isLoading }: NegativeFeedbackListP
             {item.comment && (
               <p className="mt-2 text-sm text-slate-700">&ldquo;{item.comment}&rdquo;</p>
             )}
+
+            <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+              {(() => {
+                const status = statusOverrides[item.id] ?? item.status;
+                return (
+                  <>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_BADGE_CLASS[status]}`}
+                    >
+                      {BAD_REVIEW_STATUS_LABELS[status]}
+                    </span>
+                    <select
+                      value={status}
+                      onChange={(e) => handleStatusChange(item.id, e.target.value as BadReviewStatus)}
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none"
+                    >
+                      {BAD_REVIEW_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {BAD_REVIEW_STATUS_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         ))}
       </div>

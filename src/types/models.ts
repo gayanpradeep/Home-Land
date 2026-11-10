@@ -81,6 +81,11 @@ export interface Rating {
   createdAt: Date;
 }
 
+// Lifecycle of a bad review once a branch/department sees it in the admin
+// dashboard: PENDING (just came in) -> IN_PROGRESS (someone is handling it,
+// e.g. the Customer Relations Manager called the customer back) -> CLOSED.
+export type BadReviewStatus = "PENDING" | "IN_PROGRESS" | "CLOSED";
+
 export interface Feedback {
   id?: string;
   ratingId: string;
@@ -88,6 +93,13 @@ export interface Feedback {
   departmentId: string;
   reasonCodes: string[];
   comment?: string;
+  // Collected only when the customer fills in the apology/contact modal shown
+  // after a Very Dissatisfied / Dissatisfied rating — left undefined if they
+  // skip it, so a bad review can still be tracked (and closed out) by branch/
+  // department/time alone even with no contact details.
+  customerName?: string;
+  customerContactNumber?: string;
+  status: BadReviewStatus;
   createdAt: Date;
 }
 

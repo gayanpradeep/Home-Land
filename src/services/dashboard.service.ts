@@ -1,6 +1,6 @@
 import { getDb, tsToDate } from "@/lib/firebase";
 import { COLLECTIONS } from "@/lib/constants";
-import type { RatingScore } from "@/types/models";
+import type { BadReviewStatus, RatingScore } from "@/types/models";
 import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
 
 export interface DashboardFilter {
@@ -220,6 +220,9 @@ export interface NegativeFeedbackItem {
   departmentName: string;
   reasonCodes: string[];
   comment?: string;
+  customerName?: string;
+  customerContactNumber?: string;
+  status: BadReviewStatus;
   submittedAt: Date;
 }
 
@@ -250,6 +253,10 @@ export async function getNegativeFeedback(
         departmentId: data.departmentId as string,
         reasonCodes: (data.reasonCodes as string[] | undefined) ?? [],
         comment: data.comment as string | undefined,
+        customerName: data.customerName as string | undefined,
+        customerContactNumber: data.customerContactNumber as string | undefined,
+        // Older rows written before status tracking existed default to Pending.
+        status: (data.status as BadReviewStatus | undefined) ?? "PENDING",
         createdAt: tsToDate(data.createdAt) ?? new Date(0),
       };
     })
@@ -297,6 +304,9 @@ export async function getNegativeFeedback(
       departmentName: departmentNameById.get(row.departmentId) ?? "Unknown",
       reasonCodes: row.reasonCodes,
       comment: row.comment,
+      customerName: row.customerName,
+      customerContactNumber: row.customerContactNumber,
+      status: row.status,
       submittedAt: row.createdAt,
     };
   });

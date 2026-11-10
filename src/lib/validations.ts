@@ -23,6 +23,22 @@ export const ratingSubmissionSchema = z.object({
   submissionReference: z.string().uuid(),
   reasonCodes: z.array(z.string().max(50)).max(10).optional(),
   comment: z.string().trim().max(1000).optional(),
+  customerName: z
+    .string()
+    .trim()
+    .max(100)
+    .regex(/^[A-Za-z\s.'-]+$/, "Name may only contain letters.")
+    .optional(),
+  customerContactNumber: z
+    .string()
+    .trim()
+    .max(20)
+    .regex(/^[0-9+\s-]+$/, "Contact number may only contain numbers.")
+    .optional(),
+});
+
+export const updateFeedbackStatusSchema = z.object({
+  status: z.enum(["PENDING", "IN_PROGRESS", "CLOSED"]),
 });
 
 export const createDeviceSchema = z.object({
@@ -115,3 +131,4 @@ export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
 export type CreateFeedbackReasonInput = z.infer<typeof createFeedbackReasonSchema>;
+export type UpdateFeedbackStatusInput = z.infer<typeof updateFeedbackStatusSchema>;
