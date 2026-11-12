@@ -1,4 +1,48 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app-defaults
+  build: .
+  image: home-land:latest
+  restart: unless-stopped
+  env_file:
+    - .env.local
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+  entrypoint: ["sh", "-c"]
+  command:
+    - export DATABASE_URL="postgresql://$$POSTGRES_USER:$$POSTGRES_PASSWORD@postgres:5432/$$POSTGRES_DB" && node server.js
+  networks:
+    - backend
+    - edge
+  mem_limit: 768m
+  logging: *default-logging
+
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"   # enable once a domain + certbot cert exist
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      - home-land-1
+      - home-land-2
+    networks:
+      - edge
+    mem_limit: 128m
+    logging: *default-logging
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -11,8 +55,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Published only on localhost, for local psql/debugging — not reachable
+    # from outside this host. Remove entirely once that's not needed.
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
+    networks:
+      - backend
+    mem_limit: 1536m
+    logging: *default-logging
 
   migrate:
     build:
@@ -27,21 +77,30 @@ services:
     entrypoint: ["sh", "-c"]
     command:
       - export DATABASE_URL="postgresql://$$POSTGRES_USER:$$POSTGRES_PASSWORD@postgres:5432/$$POSTGRES_DB" && npx prisma migrate deploy
+    networks:
+      - backend
+    logging: *default-logging
 
-  home-land:
-    build: .
-    image: home-land:latest
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env.local
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    entrypoint: ["sh", "-c"]
-    command:
-      - export DATABASE_URL="postgresql://$$POSTGRES_USER:$$POSTGRES_PASSWORD@postgres:5432/$$POSTGRES_DB" && node server.js
+  home-land-1:
+    <<: *app-defaults
+
+  home-land-2:
+    <<: *app-defaults
 
 volumes:
   pgdata:
+
+networks:
+  # Internal-only: app <-> postgres. Nothing on this network is reachable
+  # from outside the host.
+  backend:
+    driver: bridge
+
+  # Shared with Nginx, and with any future app stack that wants Nginx to
+  # reach it. Create it once with:
+  #   docker network create edge
+  # then every compose project (this one and future ones) declares it as
+  # external so they all join the same network without redefining it.
+  edge:
+    external: true
+    name: edge

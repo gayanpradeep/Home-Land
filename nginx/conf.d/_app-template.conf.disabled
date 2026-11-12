@@ -1,0 +1,42 @@
+# Template for adding another app behind this same Nginx later.
+#
+# Steps:
+#   1. Copy this file to conf.d/<app-name>.conf (drop the .disabled suffix).
+#   2. Give the new app's containers a DNS name on the shared "edge" network
+#      (see docker-compose.yml network_mode notes) — e.g. "myapp-1", "myapp-2".
+#   3. Fill in server_name below (a subdomain, e.g. myapp.yourdomain.com) and
+#      point the upstream at that app's containers.
+#   4. If you're running path-based routing instead of a subdomain, change the
+#      server_name to match the main site and give this app its own
+#      `location /myapp/` block instead of its own `server {}`.
+#   5. docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload
+#
+# For HTTPS once a domain exists:
+#   - Point the domain's A record at this server.
+#   - Run certbot (webroot or standalone) to get a cert into
+#     ./nginx/certbot/conf, mounted into the nginx container.
+#   - Add a `listen 443 ssl;` server block with ssl_certificate /
+#     ssl_certificate_key pointing at the certbot-issued files, and make the
+#     `listen 80` block below redirect to https instead of proxying directly.
+
+upstream myapp_app {
+  least_conn;
+  keepalive 32;
+
+  server myapp-1:PORT max_fails=3 fail_timeout=10s;
+  # server myapp-2:PORT max_fails=3 fail_timeout=10s;
+}
+
+server {
+  listen 80;
+  server_name myapp.yourdomain.com;
+
+  limit_req zone=per_ip burst=20 nodelay;
+
+  include /etc/nginx/snippets/security-headers.conf;
+
+  location / {
+    proxy_pass http://myapp_app;
+    include /etc/nginx/snippets/proxy-params.conf;
+  }
+}
