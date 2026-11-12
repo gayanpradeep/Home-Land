@@ -1,7 +1,11 @@
-import { getDb, tsToDate, stripUndefined } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/constants";
-import type { BadReviewStatus, Feedback, Rating, RatingScore } from "@/types/models";
+import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import type { BadReviewStatus, Rating, RatingScore } from "@/types/models";
 import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
+
+function toRating(row: Omit<Rating, "ratingScore"> & { ratingScore: number }): Rating {
+  return { ...row, ratingScore: row.ratingScore as RatingScore };
+}
 
 interface InsertRatingArgs {
   branchId: string;
@@ -12,50 +16,36 @@ interface InsertRatingArgs {
   submissionReference: string;
 }
 
-function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Rating {
-  const data = doc.data() as Omit<Rating, "id" | "submittedAt" | "createdAt"> & {
-    submittedAt: unknown;
-    createdAt: unknown;
-  };
-  return {
-    ...data,
-    id: doc.id,
-    submittedAt: tsToDate(data.submittedAt) ?? new Date(0),
-    createdAt: tsToDate(data.createdAt) ?? new Date(0),
-  };
-}
-
 /**
- * Idempotent by submissionReference: it is used as the Firestore document ID itself,
+ * Idempotent by submissionReference: it is used as the row's primary key itself,
  * so a client retry after a network failure safely resolves to the original rating
  * instead of creating a duplicate.
  */
 export async function insertRating(args: InsertRatingArgs): Promise<{ rating: Rating; isDuplicate: boolean }> {
-  const db = getDb();
   const now = new Date();
-  const collection = db.collection(COLLECTIONS.RATINGS);
-  const ref = collection.doc(args.submissionReference);
-
-  const doc = {
-    branchId: args.branchId,
-    departmentId: args.departmentId,
-    deviceId: args.deviceId,
-    counterName: args.counterName,
-    ratingScore: args.ratingScore,
-    emoji: RATING_EMOJIS[args.ratingScore],
-    ratingLabel: RATING_LABELS[args.ratingScore],
-    submissionReference: args.submissionReference,
-    submittedAt: now,
-    createdAt: now,
-  };
 
   try {
-    await ref.create(doc);
-    return { rating: { ...doc, id: ref.id }, isDuplicate: false };
+    const rating = await db.rating.create({
+      data: {
+        id: args.submissionReference,
+        branchId: args.branchId,
+        departmentId: args.departmentId,
+        deviceId: args.deviceId,
+        counterName: args.counterName,
+        ratingScore: args.ratingScore,
+        emoji: RATING_EMOJIS[args.ratingScore],
+        ratingLabel: RATING_LABELS[args.ratingScore],
+        submissionReference: args.submissionReference,
+        submittedAt: now,
+      },
+    });
+    return { rating: toRating(rating), isDuplicate: false };
   } catch (error) {
-    const existing = await ref.get();
-    if (existing.exists) {
-      return { rating: fromDoc(existing), isDuplicate: true };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const existing = await db.rating.findUnique({ where: { id: args.submissionReference } });
+      if (existing) {
+        return { rating: toRating(existing), isDuplicate: true };
+      }
     }
     throw error;
   }
@@ -72,24 +62,20 @@ interface InsertFeedbackArgs {
 }
 
 export async function insertFeedback(args: InsertFeedbackArgs): Promise<void> {
-  const db = getDb();
-
-  const doc: Omit<Feedback, "id"> = {
-    ratingId: args.ratingId,
-    branchId: args.branchId,
-    departmentId: args.departmentId,
-    reasonCodes: args.reasonCodes,
-    comment: args.comment,
-    customerName: args.customerName,
-    customerContactNumber: args.customerContactNumber,
-    status: "PENDING",
-    createdAt: new Date(),
-  };
-
-  await db.collection(COLLECTIONS.FEEDBACK).add(stripUndefined(doc));
+  await db.feedback.create({
+    data: {
+      ratingId: args.ratingId,
+      branchId: args.branchId,
+      departmentId: args.departmentId,
+      reasonCodes: args.reasonCodes,
+      comment: args.comment,
+      customerName: args.customerName,
+      customerContactNumber: args.customerContactNumber,
+      status: "PENDING",
+    },
+  });
 }
 
 export async function updateFeedbackStatus(id: string, status: BadReviewStatus): Promise<void> {
-  const db = getDb();
-  await db.collection(COLLECTIONS.FEEDBACK).doc(id).update({ status });
+  await db.feedback.update({ where: { id }, data: { status } });
 }

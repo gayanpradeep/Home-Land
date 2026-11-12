@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BadReviewStatus {
+  PENDING
+  IN_PROGRESS
+  CLOSED
+}
+
+model Branch {
+  id          String        @id @default(uuid())
+  branchCode  String        @unique
+  branchName  String
+  address     String
+  contactPhone String       @default("")
+  status      AccountStatus
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  departments Department[]
+  devices     Device[]
+  ratings     Rating[]
+  feedback    Feedback[]
+
+  @@map("branches")
+}
+
+model Department {
+  id             String        @id @default(uuid())
+  branchId       String
+  departmentCode String
+  departmentName String
+  status         AccountStatus
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  branch   Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  devices  Device[]
+  ratings  Rating[]
+  feedback Feedback[]
+
+  @@unique([branchId, departmentCode])
+  @@index([branchId])
+  @@map("departments")
+}
+
+model User {
+  id                String        @id @default(uuid())
+  fullName          String
+  username          String        @unique
+  passwordHash      String
+  status            AccountStatus
+  mustChangePassword Boolean      @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Device {
+  id              String        @id @default(uuid())
+  deviceCode      String        @unique
+  deviceName      String
+  branchId        String
+  departmentId    String
+  counterName     String
+  deviceTokenHash String
+  status          AccountStatus
+  lastSeenAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  ratings    Rating[]
+
+  @@index([deviceTokenHash])
+  @@map("devices")
+}
+
+model Rating {
+  id                  String   @id
+  branchId            String
+  departmentId        String
+  deviceId            String
+  counterName         String
+  ratingScore         Int
+  emoji               String
+  ratingLabel         String
+  submissionReference String   @unique
+  submittedAt         DateTime
+  createdAt           DateTime @default(now())
+
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  device     Device     @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  feedback   Feedback[]
+
+  @@index([submittedAt])
+  @@index([branchId])
+  @@index([departmentId])
+  @@map("ratings")
+}
+
+model Feedback {
+  id                     String          @id @default(uuid())
+  ratingId               String
+  branchId               String
+  departmentId           String
+  reasonCodes            String[]
+  comment                String?
+  customerName           String?
+  customerContactNumber  String?
+  status                 BadReviewStatus
+  createdAt              DateTime        @default(now())
+
+  rating     Rating     @relation(fields: [ratingId], references: [id], onDelete: Restrict)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([branchId])
+  @@index([departmentId])
+  @@map("feedback")
+}
+
+model FeedbackReason {
+  id        String        @id @default(uuid())
+  code      String        @unique
+  label     String
+  status    AccountStatus
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("feedback_reasons")
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("sessions")
+}

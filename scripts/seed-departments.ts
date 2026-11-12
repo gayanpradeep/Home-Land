@@ -1,50 +1,44 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { getDb } from "../src/lib/firebase";
-import { COLLECTIONS, DEFAULT_DEPARTMENTS } from "../src/lib/constants";
+import { DEFAULT_DEPARTMENTS } from "../src/lib/constants";
 
 function toCode(name: string): string {
   return name.toUpperCase().replace(/[^A-Z]+/g, "_").replace(/^_|_$/g, "");
 }
 
 async function main() {
-  const db = getDb();
-  const now = new Date();
-
-  const branchesSnapshot = await db.collection(COLLECTIONS.BRANCHES).get();
-  if (branchesSnapshot.empty) {
+  const { db } = await import("../src/lib/db");
+  const branches = await db.branch.findMany();
+  if (branches.length === 0) {
     throw new Error("No branches found. Run seed-branches.ts first.");
   }
 
-  const departmentsCollection = db.collection(COLLECTIONS.DEPARTMENTS);
   let count = 0;
 
-  for (const branchDoc of branchesSnapshot.docs) {
+  for (const branch of branches) {
     for (const deptName of DEFAULT_DEPARTMENTS) {
       const departmentCode = toCode(deptName);
-      const existing = await departmentsCollection
-        .where("branchId", "==", branchDoc.id)
-        .where("departmentCode", "==", departmentCode)
-        .limit(1)
-        .get();
+      const existing = await db.department.findUnique({
+        where: { branchId_departmentCode: { branchId: branch.id, departmentCode } },
+      });
 
-      if (!existing.empty) {
-        await existing.docs[0].ref.update({ updatedAt: now });
+      if (existing) {
+        await db.department.update({ where: { id: existing.id }, data: {} });
       } else {
-        await departmentsCollection.add({
-          branchId: branchDoc.id,
-          departmentCode,
-          departmentName: deptName,
-          status: "ACTIVE",
-          createdAt: now,
-          updatedAt: now,
+        await db.department.create({
+          data: {
+            branchId: branch.id,
+            departmentCode,
+            departmentName: deptName,
+            status: "ACTIVE",
+          },
         });
       }
       count += 1;
     }
   }
 
-  console.log(`Seeded ${count} department records across ${branchesSnapshot.size} branches.`);
+  console.log(`Seeded ${count} department records across ${branches.length} branches.`);
 }
 
 main().catch((err) => {

@@ -1,67 +1,33 @@
-import { getDb, tsToDate } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/constants";
+import { db } from "@/lib/db";
 import type { Session } from "@/types/models";
 
-function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Session {
-  const data = doc.data() as Omit<Session, "id" | "expiresAt" | "createdAt" | "revokedAt"> & {
-    expiresAt: unknown;
-    createdAt: unknown;
-    revokedAt?: unknown;
-  };
-  return {
-    ...data,
-    id: doc.id,
-    expiresAt: tsToDate(data.expiresAt) ?? new Date(0),
-    createdAt: tsToDate(data.createdAt) ?? new Date(0),
-    revokedAt: tsToDate(data.revokedAt) ?? undefined,
-  };
+function toSession(row: { id: string; userId: string; tokenHash: string; expiresAt: Date; createdAt: Date; revokedAt: Date | null }): Session {
+  return { ...row, revokedAt: row.revokedAt ?? undefined };
 }
 
 export async function createSessionRecord(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
-  const db = getDb();
-  await db.collection(COLLECTIONS.SESSIONS).add({
-    userId,
-    tokenHash,
-    expiresAt,
-    createdAt: new Date(),
+  await db.session.create({
+    data: { userId, tokenHash, expiresAt },
   });
 }
 
 export async function findActiveSessionByTokenHash(tokenHash: string): Promise<Session | null> {
-  const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.SESSIONS)
-    .where("tokenHash", "==", tokenHash)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) return null;
-
-  const session = fromDoc(snapshot.docs[0]);
-  if (session.revokedAt) return null;
-  if (session.expiresAt.getTime() <= Date.now()) return null;
-
-  return session;
+  const row = await db.session.findFirst({
+    where: { tokenHash, revokedAt: null, expiresAt: { gt: new Date() } },
+  });
+  return row ? toSession(row) : null;
 }
 
 export async function revokeSessionByTokenHash(tokenHash: string): Promise<void> {
-  const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.SESSIONS)
-    .where("tokenHash", "==", tokenHash)
-    .limit(1)
-    .get();
-  if (snapshot.empty) return;
-  await snapshot.docs[0].ref.update({ revokedAt: new Date() });
+  await db.session.updateMany({
+    where: { tokenHash },
+    data: { revokedAt: new Date() },
+  });
 }
 
 export async function revokeAllSessionsForUser(userId: string): Promise<void> {
-  const db = getDb();
-  const snapshot = await db.collection(COLLECTIONS.SESSIONS).where("userId", "==", userId).get();
-  const now = new Date();
-  await Promise.all(
-    snapshot.docs
-      .filter((doc) => !doc.data().revokedAt)
-      .map((doc) => doc.ref.update({ revokedAt: now })),
-  );
+  await db.session.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }

@@ -1,7 +1,5 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { getDb } from "../src/lib/firebase";
-import { COLLECTIONS } from "../src/lib/constants";
 
 const BRANCHES = [
   { branchCode: "BR01", branchName: "Colombo Head Branch", address: "Colombo" },
@@ -27,23 +25,17 @@ const BRANCHES = [
 ];
 
 async function main() {
-  const db = getDb();
-  const now = new Date();
-  const collection = db.collection(COLLECTIONS.BRANCHES);
-
+  const { db } = await import("../src/lib/db");
   let created = 0;
+
   for (const branch of BRANCHES) {
-    const existing = await collection.where("branchCode", "==", branch.branchCode).limit(1).get();
-    if (!existing.empty) {
-      await existing.docs[0].ref.update({ updatedAt: now });
+    const existing = await db.branch.findUnique({ where: { branchCode: branch.branchCode } });
+    if (existing) {
+      await db.branch.update({ where: { id: existing.id }, data: {} });
       continue;
     }
-    await collection.add({
-      ...branch,
-      contactPhone: "",
-      status: "ACTIVE",
-      createdAt: now,
-      updatedAt: now,
+    await db.branch.create({
+      data: { ...branch, contactPhone: "", status: "ACTIVE" },
     });
     created += 1;
   }

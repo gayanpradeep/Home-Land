@@ -1,5 +1,4 @@
-import { getDb, tsToDate } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/constants";
+import { db } from "@/lib/db";
 import type { BadReviewStatus, RatingScore } from "@/types/models";
 import { RATING_EMOJIS, RATING_LABELS } from "@/types/models";
 
@@ -17,42 +16,20 @@ interface RatingRow {
   departmentId: string;
 }
 
-// Firestore has no server-side group-by/aggregation pipeline, so the matching
-// ratings are fetched once per request and reduced in application code. This is
-// fine at this app's scale (a date-range query, not a full-table scan) but if
-// ratings volume grows substantially this should move to pre-aggregated
-// dailySummaries written at submission time instead of raw fan-out reads.
-//
-// Only the date-range filter is applied server-side; branchId/departmentId are
-// filtered here in application code rather than added as Firestore `.where()`
-// equality clauses. Combining a range filter on one field with an equality
-// filter on another requires a Firestore composite index, and this app doesn't
-// assume one has been deployed (see firestore.indexes.json) — filtering here
-// works correctly with no index at all, at the cost of fetching a few more
-// documents than strictly necessary.
+function rangeWhere(filter: DashboardFilter) {
+  return {
+    submittedAt: { gte: filter.from, lt: filter.to },
+    ...(filter.branchId ? { branchId: filter.branchId } : {}),
+    ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
+  };
+}
+
 async function fetchRatingRows(filter: DashboardFilter): Promise<RatingRow[]> {
-  const db = getDb();
-  const query = db
-    .collection(COLLECTIONS.RATINGS)
-    .where("submittedAt", ">=", filter.from)
-    .where("submittedAt", "<", filter.to);
-
-  const snapshot = await query.get();
-  const rows = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      ratingScore: data.ratingScore as RatingScore,
-      submittedAt: tsToDate(data.submittedAt) ?? new Date(0),
-      branchId: data.branchId as string,
-      departmentId: data.departmentId as string,
-    };
+  const rows = await db.rating.findMany({
+    where: rangeWhere(filter),
+    select: { ratingScore: true, submittedAt: true, branchId: true, departmentId: true },
   });
-
-  return rows.filter(
-    (row) =>
-      (!filter.branchId || row.branchId === filter.branchId) &&
-      (!filter.departmentId || row.departmentId === filter.departmentId),
-  );
+  return rows.map((row) => ({ ...row, ratingScore: row.ratingScore as RatingScore }));
 }
 
 export interface DashboardSummary {
@@ -66,12 +43,10 @@ export interface DashboardSummary {
 }
 
 export async function getDashboardSummary(filter: DashboardFilter): Promise<DashboardSummary> {
-  const db = getDb();
-
-  const [rows, activeBranchesSnap, activeDevicesSnap] = await Promise.all([
+  const [rows, activeBranches, activeDevices] = await Promise.all([
     fetchRatingRows(filter),
-    db.collection(COLLECTIONS.BRANCHES).where("status", "==", "ACTIVE").count().get(),
-    db.collection(COLLECTIONS.DEVICES).where("status", "==", "ACTIVE").count().get(),
+    db.branch.count({ where: { status: "ACTIVE" } }),
+    db.device.count({ where: { status: "ACTIVE" } }),
   ]);
 
   const countByScore = new Map<number, number>();
@@ -97,8 +72,8 @@ export async function getDashboardSummary(filter: DashboardFilter): Promise<Dash
     averageRating: totalRatings > 0 ? totalScore / totalRatings : 0,
     satisfactionRate: totalRatings > 0 ? (satisfactionCount / totalRatings) * 100 : 0,
     negativeRate: totalRatings > 0 ? (negativeCount / totalRatings) * 100 : 0,
-    activeBranches: activeBranchesSnap.data().count,
-    activeDevices: activeDevicesSnap.data().count,
+    activeBranches,
+    activeDevices,
     emojiDistribution: [1, 2, 3, 4, 5].map((score) => ({
       score,
       count: countByScore.get(score) ?? 0,
@@ -154,9 +129,7 @@ export interface EntityPerformance {
 async function aggregateByEntity(
   filter: DashboardFilter,
   groupField: "branchId" | "departmentId",
-  lookupCollection: string,
 ): Promise<EntityPerformance[]> {
-  const db = getDb();
   const rows = await fetchRatingRows(filter);
 
   const byEntity = new Map<
@@ -180,13 +153,22 @@ async function aggregateByEntity(
   }
 
   const entityIds = [...byEntity.keys()];
-  const entityDocs = await Promise.all(entityIds.map((id) => db.collection(lookupCollection).doc(id).get()));
-  const nameById = new Map(
-    entityDocs.map((doc) => {
-      const data = doc.data() as { branchName?: string; departmentName?: string } | undefined;
-      return [doc.id, data?.branchName ?? data?.departmentName ?? "Unknown"];
-    }),
-  );
+  const nameById = new Map<string, string>();
+  if (entityIds.length > 0) {
+    if (groupField === "branchId") {
+      const branches = await db.branch.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, branchName: true },
+      });
+      for (const branch of branches) nameById.set(branch.id, branch.branchName);
+    } else {
+      const departments = await db.department.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, departmentName: true },
+      });
+      for (const department of departments) nameById.set(department.id, department.departmentName);
+    }
+  }
 
   return entityIds
     .map((id) => {
@@ -204,11 +186,11 @@ async function aggregateByEntity(
 }
 
 export function getBranchPerformance(filter: DashboardFilter): Promise<EntityPerformance[]> {
-  return aggregateByEntity(filter, "branchId", COLLECTIONS.BRANCHES);
+  return aggregateByEntity(filter, "branchId");
 }
 
 export function getDepartmentPerformance(filter: DashboardFilter): Promise<EntityPerformance[]> {
-  return aggregateByEntity(filter, "departmentId", COLLECTIONS.DEPARTMENTS);
+  return aggregateByEntity(filter, "departmentId");
 }
 
 export interface NegativeFeedbackItem {
@@ -226,86 +208,42 @@ export interface NegativeFeedbackItem {
   submittedAt: Date;
 }
 
-// Every Feedback document is written only from the reason step the kiosk
-// shows after a Very Dissatisfied / Dissatisfied selection (see
-// rating-screen.tsx's handleSelectEmoji + the /api/device/ratings route) —
-// so there is no separate "is this negative?" filter to apply here, every
-// row in this collection already is one.
+// Every Feedback row is written only from the reason step the kiosk shows
+// after a Very Dissatisfied / Dissatisfied selection (see rating-screen.tsx's
+// handleSelectEmoji + the /api/device/ratings route) — so there is no
+// separate "is this negative?" filter to apply here, every row here already is one.
 export async function getNegativeFeedback(
   filter: DashboardFilter,
   limitCount = 50,
 ): Promise<NegativeFeedbackItem[]> {
-  const db = getDb();
-
-  const snapshot = await db
-    .collection(COLLECTIONS.FEEDBACK)
-    .where("createdAt", ">=", filter.from)
-    .where("createdAt", "<", filter.to)
-    .get();
-
-  const rows = snapshot.docs
-    .map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ratingId: data.ratingId as string,
-        branchId: data.branchId as string,
-        departmentId: data.departmentId as string,
-        reasonCodes: (data.reasonCodes as string[] | undefined) ?? [],
-        comment: data.comment as string | undefined,
-        customerName: data.customerName as string | undefined,
-        customerContactNumber: data.customerContactNumber as string | undefined,
-        // Older rows written before status tracking existed default to Pending.
-        status: (data.status as BadReviewStatus | undefined) ?? "PENDING",
-        createdAt: tsToDate(data.createdAt) ?? new Date(0),
-      };
-    })
-    .filter(
-      (row) =>
-        (!filter.branchId || row.branchId === filter.branchId) &&
-        (!filter.departmentId || row.departmentId === filter.departmentId),
-    )
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, limitCount);
-
-  if (rows.length === 0) return [];
-
-  const [ratingDocs, branchDocs, departmentDocs] = await Promise.all([
-    Promise.all(rows.map((row) => db.collection(COLLECTIONS.RATINGS).doc(row.ratingId).get())),
-    Promise.all(
-      [...new Set(rows.map((row) => row.branchId))].map((id) => db.collection(COLLECTIONS.BRANCHES).doc(id).get()),
-    ),
-    Promise.all(
-      [...new Set(rows.map((row) => row.departmentId))].map((id) =>
-        db.collection(COLLECTIONS.DEPARTMENTS).doc(id).get(),
-      ),
-    ),
-  ]);
-
-  const ratingScoreById = new Map(ratingDocs.map((doc) => [doc.id, doc.data()?.ratingScore as RatingScore | undefined]));
-  const branchNameById = new Map(
-    branchDocs.map((doc) => [doc.id, (doc.data() as { branchName?: string } | undefined)?.branchName ?? "Unknown"]),
-  );
-  const departmentNameById = new Map(
-    departmentDocs.map((doc) => [
-      doc.id,
-      (doc.data() as { departmentName?: string } | undefined)?.departmentName ?? "Unknown",
-    ]),
-  );
+  const rows = await db.feedback.findMany({
+    where: {
+      createdAt: { gte: filter.from, lt: filter.to },
+      ...(filter.branchId ? { branchId: filter.branchId } : {}),
+      ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: limitCount,
+    include: {
+      rating: { select: { ratingScore: true } },
+      branch: { select: { branchName: true } },
+      department: { select: { departmentName: true } },
+    },
+  });
 
   return rows.map((row) => {
-    const ratingScore = ratingScoreById.get(row.ratingId) ?? 1;
+    const ratingScore = (row.rating?.ratingScore as RatingScore | undefined) ?? 1;
     return {
       id: row.id,
       ratingScore,
       emoji: RATING_EMOJIS[ratingScore],
       ratingLabel: RATING_LABELS[ratingScore],
-      branchName: branchNameById.get(row.branchId) ?? "Unknown",
-      departmentName: departmentNameById.get(row.departmentId) ?? "Unknown",
+      branchName: row.branch?.branchName ?? "Unknown",
+      departmentName: row.department?.departmentName ?? "Unknown",
       reasonCodes: row.reasonCodes,
-      comment: row.comment,
-      customerName: row.customerName,
-      customerContactNumber: row.customerContactNumber,
+      comment: row.comment ?? undefined,
+      customerName: row.customerName ?? undefined,
+      customerContactNumber: row.customerContactNumber ?? undefined,
       status: row.status,
       submittedAt: row.createdAt,
     };

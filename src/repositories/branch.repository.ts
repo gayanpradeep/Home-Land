@@ -1,40 +1,16 @@
-import { getDb, tsToDate } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/constants";
+import { db } from "@/lib/db";
 import type { Branch } from "@/types/models";
 
-function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Branch {
-  const data = doc.data() as Omit<Branch, "id" | "createdAt" | "updatedAt"> & {
-    createdAt: unknown;
-    updatedAt: unknown;
-  };
-  return {
-    ...data,
-    id: doc.id,
-    createdAt: tsToDate(data.createdAt) ?? new Date(0),
-    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
-  };
-}
-
 export async function findBranchById(id: string): Promise<Branch | null> {
-  const db = getDb();
-  const doc = await db.collection(COLLECTIONS.BRANCHES).doc(id).get();
-  return doc.exists ? fromDoc(doc) : null;
+  return db.branch.findUnique({ where: { id } });
 }
 
 export async function listBranches(): Promise<Branch[]> {
-  const db = getDb();
-  const snapshot = await db.collection(COLLECTIONS.BRANCHES).orderBy("branchCode", "asc").get();
-  return snapshot.docs.map(fromDoc);
+  return db.branch.findMany({ orderBy: { branchCode: "asc" } });
 }
 
 export async function findBranchByCode(branchCode: string): Promise<Branch | null> {
-  const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.BRANCHES)
-    .where("branchCode", "==", branchCode)
-    .limit(1)
-    .get();
-  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
+  return db.branch.findUnique({ where: { branchCode } });
 }
 
 export class DuplicateBranchCodeError extends Error {
@@ -52,25 +28,20 @@ export interface CreateBranchArgs {
 }
 
 export async function createBranch(args: CreateBranchArgs): Promise<Branch> {
-  const db = getDb();
   const existing = await findBranchByCode(args.branchCode);
   if (existing) {
     throw new DuplicateBranchCodeError();
   }
 
-  const now = new Date();
-  const doc = {
-    branchCode: args.branchCode,
-    branchName: args.branchName,
-    address: args.address,
-    contactPhone: args.contactPhone ?? "",
-    status: args.status,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const ref = await db.collection(COLLECTIONS.BRANCHES).add(doc);
-  return { ...doc, id: ref.id };
+  return db.branch.create({
+    data: {
+      branchCode: args.branchCode,
+      branchName: args.branchName,
+      address: args.address,
+      contactPhone: args.contactPhone ?? "",
+      status: args.status,
+    },
+  });
 }
 
 export interface UpdateBranchArgs {
@@ -82,23 +53,21 @@ export interface UpdateBranchArgs {
 }
 
 export async function updateBranch(id: string, args: UpdateBranchArgs): Promise<void> {
-  const db = getDb();
   const existing = await findBranchByCode(args.branchCode);
   if (existing && existing.id !== id) {
     throw new DuplicateBranchCodeError();
   }
 
-  await db
-    .collection(COLLECTIONS.BRANCHES)
-    .doc(id)
-    .update({
+  await db.branch.update({
+    where: { id },
+    data: {
       branchCode: args.branchCode,
       branchName: args.branchName,
       address: args.address,
       contactPhone: args.contactPhone ?? "",
       status: args.status,
-      updatedAt: new Date(),
-    });
+    },
+  });
 }
 
 export class BranchInUseError extends Error {
@@ -108,16 +77,14 @@ export class BranchInUseError extends Error {
 }
 
 export async function deleteBranch(id: string): Promise<void> {
-  const db = getDb();
-
-  const [departments, devices] = await Promise.all([
-    db.collection(COLLECTIONS.DEPARTMENTS).where("branchId", "==", id).limit(1).get(),
-    db.collection(COLLECTIONS.DEVICES).where("branchId", "==", id).limit(1).get(),
+  const [departmentCount, deviceCount] = await Promise.all([
+    db.department.count({ where: { branchId: id } }),
+    db.device.count({ where: { branchId: id } }),
   ]);
 
-  if (!departments.empty || !devices.empty) {
+  if (departmentCount > 0 || deviceCount > 0) {
     throw new BranchInUseError();
   }
 
-  await db.collection(COLLECTIONS.BRANCHES).doc(id).delete();
+  await db.branch.delete({ where: { id } });
 }

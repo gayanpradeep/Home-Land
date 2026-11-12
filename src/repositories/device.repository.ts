@@ -1,52 +1,20 @@
-import { getDb, tsToDate } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/constants";
+import { db } from "@/lib/db";
 import type { Device } from "@/types/models";
 
-function fromDoc(doc: FirebaseFirestore.DocumentSnapshot): Device {
-  const data = doc.data() as Omit<Device, "id" | "createdAt" | "updatedAt" | "lastSeenAt"> & {
-    createdAt: unknown;
-    updatedAt: unknown;
-    lastSeenAt: unknown;
-  };
-  return {
-    ...data,
-    id: doc.id,
-    createdAt: tsToDate(data.createdAt) ?? new Date(0),
-    updatedAt: tsToDate(data.updatedAt) ?? new Date(0),
-    lastSeenAt: tsToDate(data.lastSeenAt),
-  };
-}
-
 export async function findDeviceByCode(deviceCode: string): Promise<Device | null> {
-  const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.DEVICES)
-    .where("deviceCode", "==", deviceCode)
-    .limit(1)
-    .get();
-  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
+  return db.device.findUnique({ where: { deviceCode } });
 }
 
 export async function findDeviceByTokenHash(deviceTokenHash: string): Promise<Device | null> {
-  const db = getDb();
-  const snapshot = await db
-    .collection(COLLECTIONS.DEVICES)
-    .where("deviceTokenHash", "==", deviceTokenHash)
-    .limit(1)
-    .get();
-  return snapshot.empty ? null : fromDoc(snapshot.docs[0]);
+  return db.device.findFirst({ where: { deviceTokenHash } });
 }
 
 export async function findDeviceById(id: string): Promise<Device | null> {
-  const db = getDb();
-  const doc = await db.collection(COLLECTIONS.DEVICES).doc(id).get();
-  return doc.exists ? fromDoc(doc) : null;
+  return db.device.findUnique({ where: { id } });
 }
 
 export async function listDevices(): Promise<Device[]> {
-  const db = getDb();
-  const snapshot = await db.collection(COLLECTIONS.DEVICES).orderBy("deviceCode", "asc").get();
-  return snapshot.docs.map(fromDoc);
+  return db.device.findMany({ orderBy: { deviceCode: "asc" } });
 }
 
 export class DuplicateDeviceCodeError extends Error {
@@ -56,7 +24,6 @@ export class DuplicateDeviceCodeError extends Error {
 }
 
 export async function createDevice(doc: Device): Promise<Device> {
-  const db = getDb();
   const existing = await findDeviceByCode(doc.deviceCode);
   if (existing) {
     throw new DuplicateDeviceCodeError();
@@ -64,21 +31,17 @@ export async function createDevice(doc: Device): Promise<Device> {
 
   const { id, ...data } = doc;
   void id;
-  const ref = await db.collection(COLLECTIONS.DEVICES).add(data);
-  return { ...doc, id: ref.id };
+  return db.device.create({ data });
 }
 
 export async function touchLastSeen(deviceId: string): Promise<void> {
-  const db = getDb();
-  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ lastSeenAt: new Date() });
+  await db.device.update({ where: { id: deviceId }, data: { lastSeenAt: new Date() } });
 }
 
 export async function updateDeviceStatus(deviceId: string, status: "ACTIVE" | "INACTIVE"): Promise<void> {
-  const db = getDb();
-  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).update({ status, updatedAt: new Date() });
+  await db.device.update({ where: { id: deviceId }, data: { status } });
 }
 
 export async function deleteDevice(deviceId: string): Promise<void> {
-  const db = getDb();
-  await db.collection(COLLECTIONS.DEVICES).doc(deviceId).delete();
+  await db.device.delete({ where: { id: deviceId } });
 }
