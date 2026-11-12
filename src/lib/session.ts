@@ -14,7 +14,14 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function createSession(userId: string): Promise<void> {
+// Behind a reverse proxy, the connection to Nginx is always plain HTTP even
+// when the browser is on HTTPS, so NODE_ENV can't tell us which one it was —
+// trust X-Forwarded-Proto (set by nginx/proxy-params.conf) instead.
+export function isHttpsRequest(request: Request): boolean {
+  return request.headers.get("x-forwarded-proto") === "https";
+}
+
+export async function createSession(userId: string, secure: boolean): Promise<void> {
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
@@ -24,7 +31,7 @@ export async function createSession(userId: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     expires: expiresAt,

@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { loginSchema } from "@/lib/validations";
 import { findUserByUsername, touchLastLogin } from "@/repositories/user.repository";
 import { verifyPassword } from "@/lib/password";
-import { createSession } from "@/lib/session";
+import { createSession, isHttpsRequest } from "@/lib/session";
 import { isRateLimited, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
 import { toPublicUser } from "@/lib/serialize";
 import { isDevBypassEnabled, getDevBypassUser, DEV_BYPASS_SESSION_COOKIE } from "@/lib/dev-bypass";
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account is misconfigured." }, { status: 500 });
   }
 
-  await createSession(user.id);
+  await createSession(user.id, isHttpsRequest(request));
   await touchLastLogin(user.id);
 
   return NextResponse.json({ user: toPublicUser(user) });

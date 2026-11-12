@@ -6,7 +6,7 @@ import { isSameOriginRequest } from "@/lib/csrf";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { updatePasswordHash } from "@/repositories/user.repository";
 import { revokeAllSessionsForUser } from "@/repositories/session.repository";
-import { createSession } from "@/lib/session";
+import { createSession, isHttpsRequest } from "@/lib/session";
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Invalidate every existing session, then issue a fresh one for this request.
     await revokeAllSessionsForUser(user.id);
-    await createSession(user.id);
+    await createSession(user.id, isHttpsRequest(request));
 
     return NextResponse.json({ ok: true });
   } catch (error) {
