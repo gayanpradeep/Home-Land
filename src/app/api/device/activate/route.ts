@@ -5,6 +5,7 @@ import { isSameOriginRequest } from "@/lib/csrf";
 import { findDeviceByCode } from "@/repositories/device.repository";
 import { hashDeviceSecret, setDeviceCookie } from "@/lib/device-auth";
 import { isRateLimited, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
+import { isHttpsRequest } from "@/lib/session";
 
 // One-time on-site kiosk setup: exchanges the admin-issued activation secret for a
 // long-lived HttpOnly device cookie. Never returns or logs the secret/hash.
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     clearAttempts(rateLimitKey);
-    await setDeviceCookie(activationSecret);
+    await setDeviceCookie(activationSecret, isHttpsRequest(request));
 
     return NextResponse.json({ success: true, message: "Device activated." });
   } catch (error) {

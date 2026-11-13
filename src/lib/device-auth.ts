@@ -16,11 +16,11 @@ export function hashDeviceSecret(secret: string): string {
 }
 
 /** Called once during on-site kiosk activation. Stores the raw secret in an HttpOnly cookie. */
-export async function setDeviceCookie(secret: string): Promise<void> {
+export async function setDeviceCookie(secret: string, secure: boolean): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(DEVICE_COOKIE_NAME, secret, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: DEVICE_COOKIE_MAX_AGE_SECONDS,
