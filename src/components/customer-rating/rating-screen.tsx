@@ -26,6 +26,33 @@ const SELECTION_ANIMATION_MS = 450;
 // under it so a missed beat or two doesn't flip the device to "Offline".
 const HEARTBEAT_INTERVAL_MS = 25_000;
 
+// crypto.randomUUID() is restricted to secure contexts (HTTPS or localhost) by
+// browsers, so it throws on this kiosk screen when served over plain HTTP from
+// a non-localhost IP. getRandomValues has no such restriction and is enough
+// here — this is only a client-side idempotency token, not a security boundary.
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // fall through to the manual builder below
+    }
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+}
+
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -210,7 +237,7 @@ export function RatingScreen({ branchName, departmentName, counterName }: Rating
   function handleSelectEmoji(score: RatingScore) {
     if (selectedScore !== null) return; // already mid-flow, ignore extra taps
     setSelectedScore(score);
-    const reference = crypto.randomUUID();
+    const reference = generateUUID();
     setSubmissionReference(reference);
 
     setTimeout(() => {
